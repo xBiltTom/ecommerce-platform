@@ -26,26 +26,26 @@ import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/ca
 
           <!-- Navigation Links (Desktop) -->
           <nav class="hidden md:flex space-x-8">
-            <a routerLink="/" class="text-text-primary font-medium hover:text-accent-primary transition-colors">Catálogo</a>
-            <a href="#" class="text-text-secondary hover:text-text-primary transition-colors">Categorías</a>
-            <a href="#" class="text-text-secondary hover:text-text-primary transition-colors">Marcas</a>
-            <a href="#" class="text-text-secondary hover:text-text-primary transition-colors">Nosotros</a>
+            <a routerLink="/" class="text-text-primary font-medium transition-all duration-200 hover:text-accent-primary hover:-translate-y-0.5 cursor-pointer">Catálogo</a>
+            <a href="#" class="text-text-secondary transition-all duration-200 hover:text-text-primary hover:-translate-y-0.5 cursor-pointer">Categorías</a>
+            <a href="#" class="text-text-secondary transition-all duration-200 hover:text-text-primary hover:-translate-y-0.5 cursor-pointer">Marcas</a>
+            <a href="#" class="text-text-secondary transition-all duration-200 hover:text-text-primary hover:-translate-y-0.5 cursor-pointer">Nosotros</a>
           </nav>
 
           <!-- Icons -->
           <div class="flex items-center space-x-5">
-            <button class="text-text-secondary hover:text-text-primary transition-colors focus:outline-none" aria-label="Buscar">
+            <button class="text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" aria-label="Buscar">
               <lucide-icon [img]="Search" [size]="20"></lucide-icon>
             </button>
             
-            <button class="text-text-secondary hover:text-text-primary transition-colors focus:outline-none" aria-label="Perfil">
+            <button class="text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" aria-label="Perfil">
               <lucide-icon [img]="User" [size]="20"></lucide-icon>
             </button>
 
             <!-- Cart Toggle -->
             <button 
               (click)="isCartOpen.set(true)"
-              class="relative text-text-secondary hover:text-text-primary transition-colors focus:outline-none group" 
+              class="relative text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none group cursor-pointer" 
               aria-label="Carrito"
             >
               <lucide-icon [img]="ShoppingBag" [size]="20"></lucide-icon>

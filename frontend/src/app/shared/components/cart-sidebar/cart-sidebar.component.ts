@@ -31,7 +31,7 @@ import { RouterModule } from '@angular/router';
         </h2>
         <button 
           (click)="close.emit()" 
-          class="p-2 -mr-2 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-full transition-colors focus:outline-none"
+          class="p-2 -mr-2 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-full transition-all duration-300 hover:rotate-90 active:scale-90 focus:outline-none cursor-pointer"
         >
           <lucide-icon [img]="X" [size]="20"></lucide-icon>
         </button>
@@ -53,17 +53,17 @@ import { RouterModule } from '@angular/router';
       <div *ngIf="cartService.items().length > 0" class="flex-grow overflow-y-auto p-6 space-y-6">
         <div *ngFor="let item of cartService.items()" class="flex gap-4">
           <!-- Imagen -->
-          <div class="w-20 h-20 rounded-sm bg-white p-2 flex-shrink-0 border border-border-subtle">
+          <div class="w-20 h-20 rounded-sm bg-white p-2 flex-shrink-0 border border-border-subtle cursor-pointer hover:border-accent-primary transition-colors">
             <img [src]="item.producto.imagen_url || 'assets/placeholder.png'" [alt]="item.producto.nombre" class="w-full h-full object-contain">
           </div>
           
           <!-- Detalles -->
           <div class="flex-grow flex flex-col">
             <div class="flex justify-between items-start mb-1">
-              <h4 class="text-sm font-bold text-text-primary line-clamp-2 pr-4">{{ item.producto.nombre }}</h4>
+              <h4 class="text-sm font-bold text-text-primary line-clamp-2 pr-4 cursor-pointer hover:text-accent-primary transition-colors">{{ item.producto.nombre }}</h4>
               <button 
                 (click)="cartService.removeFromCart(item.producto.id)"
-                class="text-text-secondary hover:text-red-500 transition-colors"
+                class="text-text-secondary hover:text-red-500 transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
                 aria-label="Eliminar"
               >
                 <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
@@ -79,7 +79,7 @@ import { RouterModule } from '@angular/router';
               <div class="flex items-center border border-border-subtle rounded-sm bg-bg-main">
                 <button 
                   (click)="cartService.updateQuantity(item.producto.id, item.cantidad - 1)"
-                  class="p-1 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+                  class="p-1 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer"
                   [disabled]="item.cantidad <= 1"
                 >
                   <lucide-icon [img]="Minus" [size]="14"></lucide-icon>
@@ -87,7 +87,7 @@ import { RouterModule } from '@angular/router';
                 <span class="w-8 text-center text-sm font-medium text-text-primary">{{ item.cantidad }}</span>
                 <button 
                   (click)="cartService.updateQuantity(item.producto.id, item.cantidad + 1)"
-                  class="p-1 text-text-secondary hover:text-text-primary transition-colors"
+                  class="p-1 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 cursor-pointer"
                 >
                   <lucide-icon [img]="Plus" [size]="14"></lucide-icon>
                 </button>

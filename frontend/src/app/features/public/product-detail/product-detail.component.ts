@@ -31,13 +31,13 @@ export interface ProductoDetalle {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <!-- Breadcrumbs -->
       <nav class="flex items-center text-sm text-text-secondary mb-10">
-        <a routerLink="/" class="hover:text-accent-primary transition-colors flex items-center gap-2">
+        <a routerLink="/" class="hover:text-accent-primary transition-all duration-200 hover:-translate-y-0.5 cursor-pointer flex items-center gap-2">
           <lucide-icon [img]="ArrowLeft" [size]="16"></lucide-icon> Catálogo
         </a>
         <lucide-icon [img]="ChevronRight" [size]="14" class="mx-2 opacity-50"></lucide-icon>
-        <span>{{ product()?.categoria_nombre || 'Categoría' }}</span>
+        <span class="cursor-default">{{ product()?.categoria_nombre || 'Categoría' }}</span>
         <lucide-icon [img]="ChevronRight" [size]="14" class="mx-2 opacity-50"></lucide-icon>
-        <span class="text-text-primary font-medium truncate">{{ product()?.nombre || 'Cargando...' }}</span>
+        <span class="text-text-primary font-medium truncate cursor-default">{{ product()?.nombre || 'Cargando...' }}</span>
       </nav>
 
       <!-- Skeleton Loading -->
@@ -56,19 +56,19 @@ export interface ProductoDetalle {
         <!-- Image Gallery (Simplified for now) -->
         <div class="flex flex-col gap-4">
           <div 
-            class="w-full aspect-square bg-bg-surface border border-border-subtle rounded-card overflow-hidden flex items-center justify-center p-8"
+            class="w-full aspect-square bg-bg-surface border border-border-subtle rounded-card overflow-hidden flex items-center justify-center p-8 transition-transform duration-300"
             [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'"
           >
-            <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain">
+            <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain hover:scale-110 transition-transform duration-500 cursor-zoom-in">
           </div>
           <!-- Thumbnails placeholder if there were multiple images -->
           <div class="grid grid-cols-4 gap-4">
-            <div class="aspect-square bg-bg-surface border-2 border-accent-primary rounded-sm opacity-100 p-2 cursor-pointer" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
+            <div class="aspect-square bg-bg-surface border-2 border-accent-primary rounded-sm opacity-100 p-2 cursor-pointer transition-transform duration-200 active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
               <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain">
             </div>
             <!-- Mock other angles -->
-            <div *ngFor="let i of [1,2,3]" class="aspect-square bg-bg-surface border border-border-subtle rounded-sm opacity-50 hover:opacity-100 transition-opacity p-2 cursor-pointer" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
-               <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale">
+            <div *ngFor="let i of [1,2,3]" class="aspect-square bg-bg-surface border border-border-subtle rounded-sm opacity-50 hover:opacity-100 transition-all duration-200 hover:border-accent-primary/50 p-2 cursor-pointer active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
+               <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale hover:grayscale-0 transition-all duration-300">
             </div>
           </div>
         </div>
@@ -77,17 +77,17 @@ export interface ProductoDetalle {
         <div class="flex flex-col">
           <!-- Labels & Brand -->
           <div class="flex items-center gap-3 mb-4">
-            <span class="text-sm font-bold tracking-wider uppercase text-text-secondary">{{ product()?.marca_nombre }}</span>
+            <span class="text-sm font-bold tracking-wider uppercase text-text-secondary cursor-default">{{ product()?.marca_nombre }}</span>
             <app-badge *ngIf="product()?.precio_oferta" variant="default">Oferta</app-badge>
             <app-badge *ngIf="product()?.stock_disponible! < 5" variant="outline" class="text-red-400 border-red-500/30">Poco Stock</app-badge>
           </div>
 
-          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight mb-4">
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight mb-4 cursor-default">
             {{ product()?.nombre }}
           </h1>
 
           <!-- Price -->
-          <div class="flex items-end gap-4 mb-8">
+          <div class="flex items-end gap-4 mb-8 cursor-default">
             <span class="text-4xl font-bold text-text-primary">
               {{ (product()?.precio_oferta || product()?.precio) | currency:'USD' }}
             </span>
@@ -96,7 +96,7 @@ export interface ProductoDetalle {
             </span>
           </div>
 
-          <p class="text-text-secondary text-base leading-relaxed mb-10">
+          <p class="text-text-secondary text-base leading-relaxed mb-10 cursor-default">
             {{ product()?.descripcion }}
           </p>
 
@@ -107,15 +107,15 @@ export interface ProductoDetalle {
               <div class="flex items-center justify-between border border-border-subtle rounded-sm bg-bg-surface w-full sm:w-32">
                 <button 
                   (click)="decreaseQuantity()"
-                  class="p-4 text-text-secondary hover:text-text-primary transition-colors focus:outline-none disabled:opacity-50"
+                  class="p-4 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:hover:scale-100 focus:outline-none cursor-pointer"
                   [disabled]="quantity() <= 1"
                 >
                   <lucide-icon [img]="Minus" [size]="16"></lucide-icon>
                 </button>
-                <span class="font-medium text-text-primary">{{ quantity() }}</span>
+                <span class="font-medium text-text-primary cursor-default">{{ quantity() }}</span>
                 <button 
                   (click)="increaseQuantity()"
-                  class="p-4 text-text-secondary hover:text-text-primary transition-colors focus:outline-none disabled:opacity-50"
+                  class="p-4 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:hover:scale-100 focus:outline-none cursor-pointer"
                   [disabled]="quantity() >= product()!.stock_disponible"
                 >
                   <lucide-icon [img]="Plus" [size]="16"></lucide-icon>
