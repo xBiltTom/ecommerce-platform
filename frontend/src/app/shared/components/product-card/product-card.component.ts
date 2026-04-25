@@ -24,7 +24,7 @@ export interface ProductData {
       <!-- Badges flotantes -->
       <div class="absolute top-3 left-3 z-10 flex flex-col gap-2">
         <app-badge *ngIf="product.precio_oferta" variant="default">Sale</app-badge>
-        <app-badge *ngIf="isNew" variant="outline" class="bg-bg-main/80 backdrop-blur-sm">New</app-badge>
+        <app-badge *ngIf="isNew" variant="glass">New</app-badge>
       </div>
 
       <!-- Botón de favoritos flotante -->

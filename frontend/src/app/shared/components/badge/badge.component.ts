@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-type BadgeVariant = 'default' | 'outline';
+export type BadgeVariant = 'default' | 'outline' | 'glass';
 
 @Component({
   selector: 'app-badge',
@@ -23,6 +23,7 @@ export class BadgeComponent {
 
   variantClasses: Record<BadgeVariant, string> = {
     default: 'bg-accent-primary text-text-inverse',
-    outline: 'bg-transparent border border-border-subtle text-text-secondary'
+    outline: 'bg-transparent border border-border-subtle text-text-secondary',
+    glass: 'bg-bg-main/80 backdrop-blur-sm border border-border-subtle text-text-secondary'
   };
 }
