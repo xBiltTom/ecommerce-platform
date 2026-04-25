@@ -38,7 +38,11 @@ import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/ca
               <lucide-icon [img]="Search" [size]="20"></lucide-icon>
             </button>
             
-            <button class="text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" aria-label="Perfil">
+            <button 
+              class="text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" 
+              aria-label="Perfil"
+              routerLink="/auth/login"
+            >
               <lucide-icon [img]="User" [size]="20"></lucide-icon>
             </button>
 
