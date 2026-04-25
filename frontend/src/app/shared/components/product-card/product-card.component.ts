@@ -4,6 +4,8 @@ import { ButtonComponent } from '../button/button.component';
 import { BadgeComponent } from '../badge/badge.component';
 import { LucideAngularModule, ShoppingCart } from 'lucide-angular';
 
+import { RouterModule } from '@angular/router';
+
 export interface ProductData {
   id: number;
   nombre: string;
@@ -16,7 +18,7 @@ export interface ProductData {
 @Component({
   selector: 'app-product-card',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, BadgeComponent, LucideAngularModule],
+  imports: [CommonModule, ButtonComponent, BadgeComponent, LucideAngularModule, RouterModule],
   template: `
     <div 
       class="group relative flex flex-col bg-bg-surface border border-border-subtle rounded-card overflow-hidden transition-all duration-300 hover:border-accent-primary hover:shadow-[0_0_15px_rgba(223,227,29,0.15)] h-full"
@@ -31,7 +33,7 @@ export interface ProductData {
       <div 
         class="relative w-full aspect-square flex items-center justify-center p-6 overflow-hidden cursor-pointer"
         [ngClass]="requiresWhiteBg ? 'bg-white' : 'bg-transparent'"
-        (click)="onClick.emit(product)"
+        [routerLink]="['/producto', product.nombre.toLowerCase().replace(' ', '-').substring(0, 15)]"
       >
         <img 
           [src]="product.imagen_url || 'assets/placeholder.png'" 
@@ -48,7 +50,7 @@ export interface ProductData {
         
         <h3 
           class="text-lg font-bold text-text-primary leading-tight mb-2 cursor-pointer hover:text-accent-primary transition-colors line-clamp-2"
-          (click)="onClick.emit(product)"
+          [routerLink]="['/producto', product.nombre.toLowerCase().replace(' ', '-').substring(0, 15)]"
         >
           {{ product.nombre }}
         </h3>

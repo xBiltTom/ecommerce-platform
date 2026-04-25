@@ -1,13 +1,14 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterModule } from '@angular/router';
 import { LucideAngularModule, Search, ShoppingBag, User, Menu } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
+import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/cart-sidebar.component';
 
 @Component({
   selector: 'app-public-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterModule, LucideAngularModule],
+  imports: [CommonModule, RouterOutlet, RouterModule, LucideAngularModule, CartSidebarComponent],
   template: `
     <div class="min-h-screen flex flex-col bg-bg-main text-text-primary">
       
@@ -42,7 +43,11 @@ import { CartService } from '../../../core/services/cart.service';
             </button>
 
             <!-- Cart Toggle -->
-            <button class="relative text-text-secondary hover:text-text-primary transition-colors focus:outline-none group" aria-label="Carrito">
+            <button 
+              (click)="isCartOpen.set(true)"
+              class="relative text-text-secondary hover:text-text-primary transition-colors focus:outline-none group" 
+              aria-label="Carrito"
+            >
               <lucide-icon [img]="ShoppingBag" [size]="20"></lucide-icon>
               <!-- Cart Badge -->
               <span 
@@ -121,12 +126,16 @@ import { CartService } from '../../../core/services/cart.service';
           </div>
         </div>
       </footer>
+      
+      <!-- Shopping Cart Sidebar -->
+      <app-cart-sidebar [isOpen]="isCartOpen()" (close)="isCartOpen.set(false)"></app-cart-sidebar>
     </div>
   `,
   styles: []
 })
 export class PublicLayoutComponent {
   cartService = inject(CartService);
+  isCartOpen = signal(false);
 
   readonly Search = Search;
   readonly ShoppingBag = ShoppingBag;
