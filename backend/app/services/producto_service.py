@@ -34,7 +34,8 @@ class ProductoService:
             for esp in especificaciones:
                 await self.repo.add_especificacion(producto.id, esp["clave"], esp["valor"])
 
-        return producto
+        # Re-fetch para cargar relaciones (categoria, marca, especificaciones)
+        return await self.repo.get_by_id(producto.id)
 
     async def update(self, producto_id: int, data: dict):
         producto = await self.repo.get_by_id(producto_id)

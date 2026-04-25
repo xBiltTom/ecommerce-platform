@@ -12,12 +12,24 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 
+import sys
+from sqlalchemy import pool
+
+kwargs = {
+    "echo": settings.ENVIRONMENT == "development",
+    "pool_pre_ping": True,
+}
+
+# Deshabilitar connection pooling en tests para evitar problemas con pytest-asyncio event loops
+if "pytest" in sys.modules:
+    kwargs["poolclass"] = pool.NullPool
+else:
+    kwargs["pool_size"] = 10
+    kwargs["max_overflow"] = 20
+
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.ENVIRONMENT == "development",
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
+    **kwargs
 )
 
 async_session_factory = async_sessionmaker(

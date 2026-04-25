@@ -24,6 +24,7 @@ alembic==1.13.1
 # MEJORA: PyJWT es el estándar moderno y mantenido
 PyJWT==2.8.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1         # Pinned: passlib 1.7.4 no soporta bcrypt >= 4.1
 
 # =========================
 # Validación y configuración
