@@ -91,7 +91,6 @@ import { FormsModule } from '@angular/forms';
           <!-- Fondo blanco forzado -->
           <app-product-card 
             [product]="product2"
-            [isFavorite]="true"
             [requiresWhiteBg]="true">
           </app-product-card>
           

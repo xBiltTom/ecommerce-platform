@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { BadgeComponent } from '../badge/badge.component';
-import { LucideAngularModule, ShoppingCart, Heart } from 'lucide-angular';
+import { LucideAngularModule, ShoppingCart } from 'lucide-angular';
 
 export interface ProductData {
   id: number;
@@ -23,17 +23,9 @@ export interface ProductData {
     >
       <!-- Badges flotantes -->
       <div class="absolute top-3 left-3 z-10 flex flex-col gap-2">
-        <app-badge *ngIf="product.precio_oferta" variant="default">Sale</app-badge>
-        <app-badge *ngIf="isNew" variant="glass">New</app-badge>
+        <app-badge *ngIf="product.precio_oferta" variant="default">Oferta</app-badge>
+        <app-badge *ngIf="isNew" variant="glass">Nuevo</app-badge>
       </div>
-
-      <!-- Botón de favoritos flotante -->
-      <button 
-        (click)="onToggleFavorite.emit(product)"
-        class="absolute top-3 right-3 z-10 p-2 rounded-full bg-bg-main/50 backdrop-blur-sm border border-border-subtle text-text-secondary hover:text-accent-primary transition-colors cursor-pointer"
-      >
-        <lucide-icon [img]="Heart" [size]="18" [class.fill-accent-primary]="isFavorite" [class.text-accent-primary]="isFavorite"></lucide-icon>
-      </button>
 
       <!-- Contenedor de imagen -->
       <div 
@@ -87,13 +79,10 @@ export interface ProductData {
 export class ProductCardComponent {
   @Input() product!: ProductData;
   @Input() requiresWhiteBg: boolean = false;
-  @Input() isFavorite: boolean = false;
   @Input() isNew: boolean = false;
 
   @Output() onAddToCart = new EventEmitter<ProductData>();
-  @Output() onToggleFavorite = new EventEmitter<ProductData>();
   @Output() onClick = new EventEmitter<ProductData>();
   
   readonly ShoppingCart = ShoppingCart;
-  readonly Heart = Heart;
 }
