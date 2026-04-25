@@ -71,14 +71,13 @@ export interface ProductData {
             </span>
           </div>
           
-          <app-button 
-            variant="secondary" 
-            size="sm" 
-            class="group-hover:!bg-accent-primary group-hover:!text-text-inverse group-hover:!border-accent-primary"
-            (onClick)="onAddToCart.emit(product)"
+          <button 
+            class="p-2.5 rounded-full border border-border-subtle bg-transparent text-text-primary group-hover:bg-accent-primary group-hover:text-text-inverse group-hover:border-accent-primary transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-primary"
+            (click)="onAddToCart.emit(product); $event.stopPropagation()"
+            aria-label="Add to cart"
           >
             <lucide-icon [img]="ShoppingCart" [size]="18"></lucide-icon>
-          </app-button>
+          </button>
         </div>
       </div>
     </div>
