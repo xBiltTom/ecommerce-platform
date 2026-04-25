@@ -1,22 +1,16 @@
-from app.models.base import Base
-from app.models.brand import Marca
-from app.models.cart import Carrito, CarritoItem
-from app.models.category import Categoria
-from app.models.inventory import MovimientoInventario
-from app.models.order import Pedido, PedidoHistorial, PedidoItem
-from app.models.product import Producto
-from app.models.user import Usuario
+"""
+Modelos ORM del proyecto.
+Importar todos los modelos aquí para que Alembic los detecte.
+"""
 
-__all__ = [
-    "Base",
-    "Carrito",
-    "CarritoItem",
-    "Categoria",
-    "Marca",
-    "MovimientoInventario",
-    "Pedido",
-    "PedidoHistorial",
-    "PedidoItem",
-    "Producto",
-    "Usuario",
-]
+from app.models.usuario import Usuario  # noqa: F401
+from app.models.categoria import Categoria  # noqa: F401
+from app.models.marca import Marca  # noqa: F401
+from app.models.producto import Producto, ProductoEspecificacion  # noqa: F401
+from app.models.direccion import Direccion  # noqa: F401
+from app.models.carrito import Carrito, CarritoItem  # noqa: F401
+from app.models.pedido import Pedido, PedidoItem, PedidoHistorial  # noqa: F401
+from app.models.pago import Pago  # noqa: F401
+from app.models.inventario import MovimientoInventario  # noqa: F401
+from app.models.sesion import SesionUsuario  # noqa: F401
+from app.models.auditoria import AdminAuditoria  # noqa: F401
