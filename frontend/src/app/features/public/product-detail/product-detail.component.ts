@@ -89,10 +89,10 @@ export interface ProductoDetalle {
           <!-- Price -->
           <div class="flex items-end gap-4 mb-8 cursor-default">
             <span class="text-4xl font-bold text-text-primary">
-              {{ (product()?.precio_oferta || product()?.precio) | currency:'USD' }}
+              {{ (product()?.precio_oferta || product()?.precio) | currency:'PEN':'S/ ' }}
             </span>
             <span *ngIf="product()?.precio_oferta" class="text-xl text-text-secondary line-through mb-1">
-              {{ product()?.precio | currency:'USD' }}
+              {{ product()?.precio | currency:'PEN':'S/ ' }}
             </span>
           </div>
 

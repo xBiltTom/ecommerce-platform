@@ -71,7 +71,7 @@ import { RouterModule } from '@angular/router';
             </div>
             
             <span class="text-text-primary font-medium text-sm mb-auto">
-              {{ (item.producto.precio_oferta || item.producto.precio) | currency:'USD' }}
+              {{ (item.producto.precio_oferta || item.producto.precio) | currency:'PEN':'S/ ' }}
             </span>
             
             <!-- Controles de Cantidad -->
@@ -101,7 +101,7 @@ import { RouterModule } from '@angular/router';
       <div *ngIf="cartService.items().length > 0" class="border-t border-border-subtle p-6 bg-bg-surface">
         <div class="flex items-center justify-between mb-4">
           <span class="text-text-secondary">Subtotal</span>
-          <span class="text-lg font-bold text-text-primary">{{ cartService.totalAmount() | currency:'USD' }}</span>
+          <span class="text-lg font-bold text-text-primary">{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span>
         </div>
         <p class="text-xs text-text-secondary mb-4">El costo de envío y los impuestos se calculan al pagar.</p>
         

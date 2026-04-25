@@ -58,10 +58,10 @@ export interface ProductData {
         <div class="mt-auto flex items-end justify-between pt-4">
           <div class="flex flex-col">
             <span *ngIf="product.precio_oferta" class="text-sm text-text-secondary line-through">
-              {{ product.precio | currency:'USD' }}
+              {{ product.precio | currency:'PEN':'S/ ' }}
             </span>
             <span class="text-xl font-bold text-text-primary">
-              {{ (product.precio_oferta || product.precio) | currency:'USD' }}
+              {{ (product.precio_oferta || product.precio) | currency:'PEN':'S/ ' }}
             </span>
           </div>
           
