@@ -1,0 +1,19 @@
+# Local environment/config files
+.env
+.env.*
+!.env.example
+
+# Database runtime files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temp files
+*.log
+*.tmp
+
+# IDE/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
