@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, get_optional_user
 from app.models.usuario import Usuario
 from app.schemas.marca import MarcaCreateRequest, MarcaUpdateRequest, MarcaResponse
 from app.schemas.common import PaginatedResponse, MessageResponse
@@ -21,10 +21,19 @@ router = APIRouter(prefix="/marcas", tags=["Marcas"])
 async def list_marcas(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
+    activo: bool | None = None,
+    user: Usuario | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
+    is_admin = user and user.rol == "admin"
+    if not is_admin:
+        solo_activos = True
+        activo = True
+    else:
+        solo_activos = (activo is not None)
+
     service = MarcaService(db)
-    items, total = await service.list_all(page, page_size)
+    items, total = await service.list_all(page, page_size, solo_activos=solo_activos, activo=activo)
     return PaginatedResponse(
         items=[MarcaResponse.model_validate(m) for m in items],
         total=total, page=page, page_size=page_size,

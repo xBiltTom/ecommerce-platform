@@ -88,6 +88,16 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
               <option *ngFor="let marca of marcas()" [value]="marca.id">{{ marca.nombre }}</option>
             </select>
 
+            <select
+              class="bg-bg-main border border-border-subtle rounded-sm px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
+              [value]="estadoFilter()"
+              (change)="onEstadoChange($event)"
+            >
+              <option value="">Todos los estados</option>
+              <option value="true">Activos</option>
+              <option value="false">Ocultos</option>
+            </select>
+
             <app-button variant="secondary" size="sm" (onClick)="aplicarFiltros()">Filtrar</app-button>
             <app-button variant="ghost" size="sm" (onClick)="resetFiltros()">Limpiar</app-button>
             <app-button variant="primary" size="sm" (onClick)="abrirModalCrear()">
@@ -290,6 +300,34 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
         </form>
       </section>
     </div>
+
+    <!-- Confirm Delete Modal -->
+    <div *ngIf="showDeleteConfirm()" class="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" (click)="cancelarDesactivacion()"></div>
+
+      <section class="relative w-full max-w-sm rounded-card border border-border-subtle bg-bg-surface shadow-2xl overflow-hidden zoom-in-95">
+        <div class="p-6 text-center space-y-4">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 border border-rose-500/20 mb-2">
+            <lucide-icon [img]="Trash2" [size]="28" class="text-rose-500"></lucide-icon>
+          </div>
+          <h3 class="text-xl font-bold text-text-primary tracking-tight">Confirmar acción</h3>
+          <p class="text-sm text-text-secondary leading-relaxed">
+            ¿Estás seguro de que deseas desactivar el producto <span class="font-semibold text-text-primary">"{{ productToDelete()?.nombre }}"</span>? Esta acción lo ocultará de la tienda.
+          </p>
+        </div>
+        <div class="p-5 border-t border-border-subtle bg-bg-main/50 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+          <app-button variant="ghost" class="w-full sm:w-auto" (onClick)="cancelarDesactivacion()">Cancelar</app-button>
+          <button 
+            class="w-full sm:w-auto px-4 py-2 rounded-sm bg-rose-500 hover:bg-rose-600 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+            (click)="confirmarDesactivacion()"
+            [disabled]="deletingId() === productToDelete()?.id"
+          >
+            <lucide-icon *ngIf="deletingId() === productToDelete()?.id" [img]="Loader" [size]="14" class="animate-spin"></lucide-icon>
+            Sí, desactivar
+          </button>
+        </div>
+      </section>
+    </div>
   `,
   styles: []
 })
@@ -328,9 +366,13 @@ export class AdminProductosComponent implements OnInit {
   readonly editingProductId = signal<number | null>(null);
   readonly formError = signal('');
 
+  readonly showDeleteConfirm = signal(false);
+  readonly productToDelete = signal<AdminProductoList | null>(null);
+
   readonly searchText = signal('');
   readonly categoriaFilter = signal<string>('');
   readonly marcaFilter = signal<string>('');
+  readonly estadoFilter = signal<string>('');
 
   readonly productForm = this.fb.group({
     sku: ['', [Validators.required, Validators.minLength(1)]],
@@ -364,6 +406,11 @@ export class AdminProductosComponent implements OnInit {
     this.marcaFilter.set(target.value);
   }
 
+  onEstadoChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.estadoFilter.set(target.value);
+  }
+
   aplicarFiltros(): void {
     this.page.set(1);
     this.cargarProductos();
@@ -373,6 +420,7 @@ export class AdminProductosComponent implements OnInit {
     this.searchText.set('');
     this.categoriaFilter.set('');
     this.marcaFilter.set('');
+    this.estadoFilter.set('');
     this.page.set(1);
     this.cargarProductos();
   }
@@ -505,6 +553,20 @@ export class AdminProductosComponent implements OnInit {
     if (this.deletingId()) {
       return;
     }
+    this.productToDelete.set(product);
+    this.showDeleteConfirm.set(true);
+  }
+
+  cancelarDesactivacion(): void {
+    this.showDeleteConfirm.set(false);
+    this.productToDelete.set(null);
+  }
+
+  confirmarDesactivacion(): void {
+    const product = this.productToDelete();
+    if (!product || this.deletingId()) {
+      return;
+    }
 
     this.deletingId.set(product.id);
 
@@ -512,10 +574,12 @@ export class AdminProductosComponent implements OnInit {
       next: () => {
         this.deletingId.set(null);
         this.toast.success(`Producto "${product.nombre}" desactivado.`);
+        this.cancelarDesactivacion();
         this.cargarProductos();
       },
       error: () => {
         this.deletingId.set(null);
+        this.cancelarDesactivacion();
       },
     });
   }
@@ -530,6 +594,7 @@ export class AdminProductosComponent implements OnInit {
       categoria_id: this.toNumericNullable(this.categoriaFilter()),
       marca_id: this.toNumericNullable(this.marcaFilter()),
       orden: 'recientes',
+      activo: this.toBooleanNullable(this.estadoFilter()),
     }).subscribe({
       next: (response) => {
         this.applyPagination(response);
@@ -581,6 +646,12 @@ export class AdminProductosComponent implements OnInit {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private toBooleanNullable(value: string): boolean | null | '' {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return '';
   }
 
   private buildPayload() {

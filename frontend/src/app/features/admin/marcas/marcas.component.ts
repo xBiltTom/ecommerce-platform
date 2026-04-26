@@ -54,6 +54,15 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
           </div>
           
           <div class="flex flex-wrap items-center gap-2">
+            <select
+              class="bg-bg-main border border-border-subtle rounded-sm px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
+              [value]="estadoFilter()"
+              (change)="onEstadoChange($event)"
+            >
+              <option value="">Todos los estados</option>
+              <option value="true">Activos</option>
+              <option value="false">Inactivos</option>
+            </select>
             <app-button variant="secondary" size="sm" (onClick)="aplicarFiltro()">Filtrar</app-button>
             <app-button variant="ghost" size="sm" (onClick)="limpiarFiltro()">Limpiar</app-button>
           </div>
@@ -185,6 +194,7 @@ export class AdminMarcasComponent implements OnInit {
 
   searchText = '';
   showModal = signal(false);
+  estadoFilter = signal<string>('');
   
   formMarca: any = { id: null, nombre: '' };
 
@@ -194,7 +204,8 @@ export class AdminMarcasComponent implements OnInit {
 
   cargarMarcas(): void {
     this.loading.set(true);
-    this.adminService.getMarcasPaginadas(this.page(), this.pageSize()).subscribe({
+    const activo = this.toBooleanNullable(this.estadoFilter());
+    this.adminService.getMarcasPaginadas(this.page(), this.pageSize(), activo).subscribe({
       next: (res) => {
         this.marcas.set(res.items);
         this.total.set(res.total);
@@ -210,12 +221,20 @@ export class AdminMarcasComponent implements OnInit {
   }
 
   aplicarFiltro(): void {
-    this.aplicarFiltroLocal();
+    this.page.set(1);
+    this.cargarMarcas();
   }
 
   limpiarFiltro(): void {
     this.searchText = '';
-    this.aplicarFiltroLocal();
+    this.estadoFilter.set('');
+    this.page.set(1);
+    this.cargarMarcas();
+  }
+
+  onEstadoChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.estadoFilter.set(target.value);
   }
 
   aplicarFiltroLocal(): void {
@@ -295,5 +314,11 @@ export class AdminMarcasComponent implements OnInit {
         this.updatingId.set(null);
       }
     });
+  }
+
+  private toBooleanNullable(value: string): boolean | null | '' {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return '';
   }
 }

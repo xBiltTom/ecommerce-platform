@@ -48,13 +48,16 @@ class ProductoRepository:
         precio_max: float | None = None,
         buscar: str | None = None,
         solo_activos: bool = True,
+        activo: bool | None = None,
         orden: str = "reciente",
     ) -> tuple[list[Producto], int]:
         query = select(Producto)
         count_query = select(func.count()).select_from(Producto)
 
         filters = []
-        if solo_activos:
+        if activo is not None:
+            filters.append(Producto.activo == activo)
+        elif solo_activos:
             filters.append(Producto.activo == True)  # noqa: E712
         if categoria_id:
             filters.append(Producto.categoria_id == categoria_id)

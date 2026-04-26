@@ -34,14 +34,15 @@ class CategoriaRepository:
         await self.db.flush()
         return categoria
 
-    async def list_all(
-        self, page: int = 1, page_size: int = 50, solo_activos: bool = True
-    ) -> tuple[list[Categoria], int]:
+    async def list_all(self, page: int = 1, page_size: int = 50, solo_activos: bool = True, activo: bool | None = None) -> tuple[list[Categoria], int]:
         query = select(Categoria)
         count_query = select(func.count()).select_from(Categoria)
 
-        if solo_activos:
-            query = query.where(Categoria.activo == True)  # noqa: E712
+        if activo is not None:
+            query = query.where(Categoria.activo == activo)
+            count_query = count_query.where(Categoria.activo == activo)
+        elif solo_activos:
+            query = query.where(Categoria.activo == True)
             count_query = count_query.where(Categoria.activo == True)  # noqa: E712
 
         total = (await self.db.execute(count_query)).scalar() or 0

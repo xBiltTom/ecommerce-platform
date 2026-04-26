@@ -42,8 +42,8 @@ class MarcaService:
             raise NotFoundException("Marca no encontrada")
         return marca
 
-    async def list_all(self, page=1, page_size=50, solo_activos=True):
-        return await self.repo.list_all(page, page_size, solo_activos)
+    async def list_all(self, page=1, page_size=50, solo_activos=True, activo: bool | None = None):
+        return await self.repo.list_all(page, page_size, solo_activos, activo)
 
     async def soft_delete(self, marca_id: int):
         marca = await self.repo.get_by_id(marca_id)

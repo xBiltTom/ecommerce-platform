@@ -43,8 +43,8 @@ class CategoriaService:
             raise NotFoundException("Categoría no encontrada")
         return categoria
 
-    async def list_all(self, page=1, page_size=50, solo_activos=True):
-        return await self.repo.list_all(page, page_size, solo_activos)
+    async def list_all(self, page=1, page_size=50, solo_activos=True, activo: bool | None = None):
+        return await self.repo.list_all(page, page_size, solo_activos, activo)
 
     async def soft_delete(self, categoria_id: int):
         categoria = await self.repo.get_by_id(categoria_id)

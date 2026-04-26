@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, get_optional_user
 from app.models.usuario import Usuario
 from app.schemas.producto import (
     ProductoCreateRequest, ProductoUpdateRequest, ProductoResponse,
@@ -61,13 +61,22 @@ async def list_productos(
     precio_max: float | None = None,
     buscar: str | None = None,
     orden: str = "reciente",
+    activo: bool | None = None,
+    user: Usuario | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
+    is_admin = user and user.rol == "admin"
+    if not is_admin:
+        solo_activos = True
+        activo = True
+    else:
+        solo_activos = (activo is not None)
+
     service = ProductoService(db)
     items, total = await service.list_all(
         page=page, page_size=page_size, categoria_id=categoria_id,
         marca_id=marca_id, precio_min=precio_min, precio_max=precio_max,
-        buscar=buscar, orden=orden,
+        buscar=buscar, orden=orden, solo_activos=solo_activos, activo=activo,
     )
     return PaginatedResponse(
         items=[ProductoListResponse(**_build_list_response(p)) for p in items],

@@ -241,6 +241,7 @@ export class AdminService {
     categoria_id?: number | null;
     marca_id?: number | null;
     orden?: string;
+    activo?: boolean | null | '';
   } = {}): Observable<PaginatedResponse<AdminProductoList>> {
     const query = this.toParams({
       page: params.page ?? 1,
@@ -249,6 +250,7 @@ export class AdminService {
       categoria_id: params.categoria_id,
       marca_id: params.marca_id,
       orden: params.orden ?? 'reciente',
+      activo: params.activo,
     });
 
     return this.http.get<PaginatedResponse<AdminProductoList>>(this.PRODUCTOS_URL, { params: query });
@@ -275,8 +277,8 @@ export class AdminService {
     return this.http.get<PaginatedResponse<ProductoCatalogo>>(this.CATEGORIAS_URL, { params });
   }
 
-  getCategoriasPaginadas(page = 1, pageSize = 10): Observable<PaginatedResponse<any>> {
-    const params = this.toParams({ page, page_size: pageSize });
+  getCategoriasPaginadas(page = 1, pageSize = 10, activo?: boolean | null | ''): Observable<PaginatedResponse<any>> {
+    const params = this.toParams({ page, page_size: pageSize, activo });
     return this.http.get<PaginatedResponse<any>>(this.CATEGORIAS_URL, { params });
   }
 
@@ -297,8 +299,8 @@ export class AdminService {
     return this.http.get<PaginatedResponse<ProductoCatalogo>>(this.MARCAS_URL, { params });
   }
 
-  getMarcasPaginadas(page = 1, pageSize = 10): Observable<PaginatedResponse<any>> {
-    const params = this.toParams({ page, page_size: pageSize });
+  getMarcasPaginadas(page = 1, pageSize = 10, activo?: boolean | null | ''): Observable<PaginatedResponse<any>> {
+    const params = this.toParams({ page, page_size: pageSize, activo });
     return this.http.get<PaginatedResponse<any>>(this.MARCAS_URL, { params });
   }
 

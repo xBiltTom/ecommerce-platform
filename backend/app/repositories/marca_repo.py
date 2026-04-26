@@ -34,13 +34,14 @@ class MarcaRepository:
         await self.db.flush()
         return marca
 
-    async def list_all(
-        self, page: int = 1, page_size: int = 50, solo_activos: bool = True
-    ) -> tuple[list[Marca], int]:
+    async def list_all(self, page: int = 1, page_size: int = 50, solo_activos: bool = True, activo: bool | None = None) -> tuple[list[Marca], int]:
         query = select(Marca)
         count_query = select(func.count()).select_from(Marca)
 
-        if solo_activos:
+        if activo is not None:
+            query = query.where(Marca.activo == activo)
+            count_query = count_query.where(Marca.activo == activo)
+        elif solo_activos:
             query = query.where(Marca.activo == True)  # noqa: E712
             count_query = count_query.where(Marca.activo == True)  # noqa: E712
 
