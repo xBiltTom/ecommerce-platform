@@ -131,9 +131,8 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
               <tr *ngFor="let product of productos()" class="hover:bg-bg-main/70 transition-colors">
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-sm border border-border-subtle bg-bg-main overflow-hidden flex items-center justify-center">
-                      <img *ngIf="product.imagen_url" [src]="product.imagen_url" [alt]="product.nombre" class="w-full h-full object-cover" />
-                      <lucide-icon *ngIf="!product.imagen_url" [img]="Boxes" [size]="16" class="text-text-secondary"></lucide-icon>
+                    <div class="w-10 h-10 rounded-sm border border-border-subtle bg-bg-main overflow-hidden flex items-center justify-center shrink-0">
+                      <img [src]="product.imagen_url || 'https://placehold.co/150x150/1E293B/38BDF8?text=NO+IMG'" [alt]="product.nombre" class="w-full h-full object-cover" />
                     </div>
                     <div>
                       <p class="font-semibold text-text-primary line-clamp-1">{{ product.nombre }}</p>
@@ -281,6 +280,11 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             </label>
           </div>
 
+          <label class="space-y-1.5 text-sm block">
+            <span class="text-text-secondary">URL de Imagen (Opcional)</span>
+            <input formControlName="imagen_url" type="url" placeholder="https://..." class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
+          </label>
+
           <label class="inline-flex items-center gap-2 text-sm cursor-pointer select-none">
             <input type="checkbox" formControlName="activo" class="accent-accent-primary" />
             <span class="text-text-secondary">Producto activo</span>
@@ -385,6 +389,7 @@ export class AdminProductosComponent implements OnInit {
     stock_minimo: [0, [Validators.required, Validators.min(0)]],
     categoria_id: [null as number | null],
     marca_id: [null as number | null],
+    imagen_url: [''],
     activo: [true],
   });
 
@@ -449,6 +454,7 @@ export class AdminProductosComponent implements OnInit {
       stock_minimo: 0,
       categoria_id: null,
       marca_id: null,
+      imagen_url: '',
       activo: true,
     });
     this.modalOpen.set(true);
@@ -470,6 +476,7 @@ export class AdminProductosComponent implements OnInit {
           stock_minimo: detail.stock_minimo,
           categoria_id: detail.categoria_id ?? null,
           marca_id: detail.marca_id ?? null,
+          imagen_url: detail.imagen_url ?? '',
           activo: detail.activo,
         });
         this.modalOpen.set(true);
@@ -689,6 +696,7 @@ export class AdminProductosComponent implements OnInit {
       stock_minimo: Number(value.stock_minimo ?? 0),
       categoria_id: value.categoria_id ?? null,
       marca_id: value.marca_id ?? null,
+      imagen_url: value.imagen_url?.trim() || null,
       activo: Boolean(value.activo),
     };
   }

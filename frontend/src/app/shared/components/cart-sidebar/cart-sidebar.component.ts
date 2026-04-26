@@ -53,8 +53,8 @@ import { RouterModule, Router } from '@angular/router';
       <div *ngIf="cartService.items().length > 0" class="flex-grow overflow-y-auto p-6 space-y-6">
         <div *ngFor="let item of cartService.items()" class="flex gap-4">
           <!-- Imagen -->
-          <div class="w-20 h-20 rounded-sm bg-white p-2 flex-shrink-0 border border-border-subtle cursor-pointer hover:border-accent-primary transition-colors">
-            <img [src]="item.producto.imagen_url || 'assets/placeholder.png'" [alt]="item.producto.nombre" class="w-full h-full object-contain">
+          <div class="w-20 h-20 rounded-sm bg-bg-surface p-2 flex-shrink-0 border border-border-subtle cursor-pointer hover:border-accent-primary transition-colors">
+            <img [src]="item.producto.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" [alt]="item.producto.nombre" class="w-full h-full object-contain">
           </div>
           
           <!-- Detalles -->

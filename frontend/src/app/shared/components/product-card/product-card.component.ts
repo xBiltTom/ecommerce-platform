@@ -35,7 +35,7 @@ export interface ProductData {
         [routerLink]="['/producto', product.nombre.toLowerCase().replace(' ', '-').substring(0, 15)]"
       >
         <img 
-          [src]="product.imagen_url || 'assets/placeholder.png'" 
+          [src]="product.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" 
           [alt]="product.nombre"
           class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
         />

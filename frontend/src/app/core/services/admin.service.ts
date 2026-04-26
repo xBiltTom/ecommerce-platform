@@ -120,6 +120,7 @@ export interface ProductoCreatePayload {
   stock_minimo?: number;
   categoria_id?: number | null;
   marca_id?: number | null;
+  imagen_url?: string | null;
   especificaciones?: EspecificacionProducto[];
 }
 
@@ -131,6 +132,7 @@ export interface ProductoUpdatePayload {
   stock_minimo?: number;
   categoria_id?: number | null;
   marca_id?: number | null;
+  imagen_url?: string | null;
   activo?: boolean;
   especificaciones?: EspecificacionProducto[];
 }

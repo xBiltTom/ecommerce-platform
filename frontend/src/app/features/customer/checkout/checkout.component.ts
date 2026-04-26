@@ -130,7 +130,7 @@ import { LucideAngularModule, CreditCard, MapPin, CheckCircle, Package } from 'l
             <div class="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
               <div *ngFor="let item of cartService.items()" class="flex gap-4">
                 <div class="w-16 h-16 bg-white p-1 rounded-sm border border-border-subtle flex-shrink-0">
-                  <img [src]="item.producto.imagen_url || 'assets/placeholder.png'" class="w-full h-full object-contain">
+                  <img [src]="item.producto.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" class="w-full h-full object-contain">
                 </div>
                 <div class="flex-grow">
                   <h4 class="text-sm text-text-primary line-clamp-2">{{ item.producto.nombre }}</h4>

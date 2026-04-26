@@ -59,16 +59,16 @@ export interface ProductoDetalle {
             class="w-full aspect-square bg-bg-surface border border-border-subtle rounded-card overflow-hidden flex items-center justify-center p-8 transition-transform duration-300"
             [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'"
           >
-            <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain hover:scale-110 transition-transform duration-500 cursor-zoom-in">
+            <img [src]="product()?.imagen_url || 'https://placehold.co/800x800/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain hover:scale-110 transition-transform duration-500 cursor-zoom-in">
           </div>
           <!-- Thumbnails placeholder if there were multiple images -->
           <div class="grid grid-cols-4 gap-4">
             <div class="aspect-square bg-bg-surface border-2 border-accent-primary rounded-sm opacity-100 p-2 cursor-pointer transition-transform duration-200 active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
-              <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain">
+              <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain">
             </div>
             <!-- Mock other angles -->
             <div *ngFor="let i of [1,2,3]" class="aspect-square bg-bg-surface border border-border-subtle rounded-sm opacity-50 hover:opacity-100 transition-all duration-200 hover:border-accent-primary/50 p-2 cursor-pointer active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
-               <img [src]="product()?.imagen_url || 'assets/placeholder.png'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale hover:grayscale-0 transition-all duration-300">
+               <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale hover:grayscale-0 transition-all duration-300">
             </div>
           </div>
         </div>

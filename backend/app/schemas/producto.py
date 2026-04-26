@@ -22,6 +22,7 @@ class ProductoCreateRequest(BaseModel):
     stock_minimo: int = Field(0, ge=0)
     categoria_id: int | None = None
     marca_id: int | None = None
+    imagen_url: str | None = None
     especificaciones: list[EspecificacionSchema] | None = None
 
 
@@ -33,6 +34,7 @@ class ProductoUpdateRequest(BaseModel):
     stock_minimo: int | None = Field(None, ge=0)
     categoria_id: int | None = None
     marca_id: int | None = None
+    imagen_url: str | None = None
     activo: bool | None = None
     especificaciones: list[EspecificacionSchema] | None = None
 
