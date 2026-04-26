@@ -301,7 +301,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             <div *ngIf="especificaciones().length === 0" class="text-xs text-text-secondary/60 italic py-1">
               Sin especificaciones. Pulsa "Añadir" para agregar características técnicas.
             </div>
-            <div *ngFor="let esp of especificaciones(); let i = index" class="flex items-center gap-2">
+            <div *ngFor="let esp of especificaciones(); let i = index; trackBy: trackByIndex" class="flex items-center gap-2">
               <input
                 type="text"
                 [value]="esp.clave"
@@ -440,6 +440,10 @@ export class AdminProductosComponent implements OnInit {
   ngOnInit(): void {
     this.loadMetadata();
     this.cargarProductos();
+  }
+
+  trackByIndex(index: number, obj: any): any {
+    return index;
   }
 
   onSearchInput(event: Event): void {
