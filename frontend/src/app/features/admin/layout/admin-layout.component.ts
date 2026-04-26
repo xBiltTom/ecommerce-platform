@@ -46,10 +46,14 @@ import { LucideAngularModule, LayoutDashboard, ShoppingBag, Users, PackageSearch
 
         <!-- Configuración & Perfil inferior -->
         <div class="p-4 border-t border-border-subtle">
-          <div class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary cursor-pointer transition-colors">
+          <a
+            routerLink="/admin/configuracion"
+            routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary"
+            class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group"
+          >
             <lucide-icon [img]="Settings" [size]="20"></lucide-icon>
             Configuración
-          </div>
+          </a>
           <div (click)="logout()" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-sm cursor-pointer transition-colors mt-1">
             <lucide-icon [img]="LogOut" [size]="20"></lucide-icon>
             Cerrar Sesión
@@ -58,7 +62,7 @@ import { LucideAngularModule, LayoutDashboard, ShoppingBag, Users, PackageSearch
       </aside>
 
       <!-- Main Content -->
-      <main class="flex-grow flex flex-col h-screen overflow-hidden">
+      <main class="flex-grow flex flex-col h-screen overflow-hidden min-w-0">
         <!-- Topbar móvil (Opcional, mockeado para ahora) -->
         <header class="md:hidden h-16 border-b border-border-subtle flex items-center px-4 bg-bg-surface">
           <span class="text-lg font-bold text-text-primary">Protech Admin</span>

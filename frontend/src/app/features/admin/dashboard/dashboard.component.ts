@@ -20,6 +20,7 @@ import {
   Users,
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
+import { ToastService } from '../../../core/services/toast.service';
 
 interface KpiCard {
   label: string;
@@ -94,8 +95,8 @@ interface KpiCard {
         </article>
       </section>
 
-      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6">
+      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6 min-w-0">
+        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
           <div class="flex items-center justify-between mb-6">
             <div>
               <h2 class="text-xl font-black tracking-tight">Ventas por periodo</h2>
@@ -126,7 +127,7 @@ interface KpiCard {
           </div>
         </article>
 
-        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6">
+        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
           <h2 class="text-xl font-black tracking-tight">Pedidos por estado</h2>
           <p class="text-text-secondary text-sm mt-1">Distribucion operativa actual</p>
 
@@ -148,8 +149,8 @@ interface KpiCard {
         </article>
       </section>
 
-      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6">
+      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6 min-w-0">
+        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-black tracking-tight">Top productos</h2>
@@ -187,7 +188,7 @@ interface KpiCard {
           </div>
         </article>
 
-        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6">
+        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
           <h2 class="text-xl font-black tracking-tight">Riesgo de stock</h2>
           <p class="text-text-secondary text-sm mt-1">Productos por debajo de umbral</p>
 
@@ -279,6 +280,7 @@ interface KpiCard {
 })
 export class DashboardComponent implements OnInit {
   private readonly adminService = inject(AdminService);
+  private readonly toast = inject(ToastService);
 
   readonly Download = Download;
   readonly Sparkles = Sparkles;
@@ -391,9 +393,11 @@ export class DashboardComponent implements OnInit {
         anchor.click();
         window.URL.revokeObjectURL(url);
         this.descargando.set(false);
+        this.toast.success('Reporte PDF generado y descargado.');
       },
-      error: () => {
+      error: (error: unknown) => {
         this.descargando.set(false);
+        this.toast.error(this.extractApiMessage(error, 'No se pudo descargar el reporte PDF.'));
       },
     });
   }
@@ -446,9 +450,10 @@ export class DashboardComponent implements OnInit {
         this.kpis.set(response);
         this.loadingOverview.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.kpis.set(null);
         this.loadingOverview.set(false);
+        this.toast.error(this.extractApiMessage(error, 'No se pudieron cargar los KPIs del dashboard.'));
       },
     });
   }
@@ -461,9 +466,10 @@ export class DashboardComponent implements OnInit {
         this.ventasSeries.set(response);
         this.loadingVentas.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.ventasSeries.set([]);
         this.loadingVentas.set(false);
+        this.toast.warning(this.extractApiMessage(error, 'No se pudieron cargar las ventas por periodo.'));
       },
     });
   }
@@ -476,9 +482,10 @@ export class DashboardComponent implements OnInit {
         this.topProductos.set(response);
         this.loadingTop.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.topProductos.set([]);
         this.loadingTop.set(false);
+        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el top de productos.'));
       },
     });
   }
@@ -491,9 +498,10 @@ export class DashboardComponent implements OnInit {
         this.pedidosEstado.set(response);
         this.loadingEstados.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.pedidosEstado.set([]);
         this.loadingEstados.set(false);
+        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el estado de pedidos.'));
       },
     });
   }
@@ -509,12 +517,13 @@ export class DashboardComponent implements OnInit {
           nombre: item.nombre,
           stock_disponible: item.stock_disponible,
           stock_minimo: item.stock_minimo,
-        })));
+        }))); 
         this.loadingStock.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.bajoStock.set([]);
         this.loadingStock.set(false);
+        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el riesgo de stock.'));
       },
     });
   }
@@ -542,5 +551,16 @@ export class DashboardComponent implements OnInit {
     }
 
     return new Intl.DateTimeFormat('es-PE', { month: 'short', year: '2-digit' }).format(date);
+  }
+
+  private extractApiMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const apiError = (error as { error?: { detail?: string } }).error;
+      if (apiError?.detail) {
+        return apiError.detail;
+      }
+    }
+
+    return fallback;
   }
 }

@@ -16,6 +16,7 @@ import {
   Send,
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
+import { ToastService } from '../../../core/services/toast.service';
 
 interface EstadoOption {
   label: string;
@@ -174,6 +175,7 @@ interface EstadoOption {
 })
 export class AdminPedidosComponent implements OnInit {
   private readonly adminService = inject(AdminService);
+  private readonly toast = inject(ToastService);
 
   readonly Search = Search;
   readonly ChevronDown = ChevronDown;
@@ -271,9 +273,11 @@ export class AdminPedidosComponent implements OnInit {
 
         this.syncFilteredFromPedidos();
         this.updatingId.set(null);
+        this.toast.success(`Pedido actualizado a ${this.humanEstado(estado)}.`);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.updatingId.set(null);
+        this.toast.error(this.extractApiMessage(error, 'No se pudo actualizar el estado del pedido.'));
       },
     });
   }
@@ -333,12 +337,13 @@ export class AdminPedidosComponent implements OnInit {
         this.applySearchLocally();
         this.loading.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.pedidos.set([]);
         this.filteredPedidos.set([]);
         this.total.set(0);
         this.totalPages.set(0);
         this.loading.set(false);
+        this.toast.error(this.extractApiMessage(error, 'No se pudo cargar la lista de pedidos.'));
       },
     });
   }
@@ -377,5 +382,16 @@ export class AdminPedidosComponent implements OnInit {
 
   private getPedidoState(pedidoId: string): EstadoPedido | undefined {
     return this.pedidos().find((pedido) => pedido.id === pedidoId)?.estado;
+  }
+
+  private extractApiMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const apiError = (error as { error?: { detail?: string } }).error;
+      if (apiError?.detail) {
+        return apiError.detail;
+      }
+    }
+
+    return fallback;
   }
 }

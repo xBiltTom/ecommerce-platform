@@ -18,7 +18,13 @@ type ButtonSize = 'sm' | 'md' | 'lg';
       <ng-content></ng-content>
     </button>
   `,
-  styles: []
+  styles: [
+    `
+      :host {
+        display: contents;
+      }
+    `
+  ]
 })
 export class ButtonComponent {
   @Input() variant: ButtonVariant = 'primary';

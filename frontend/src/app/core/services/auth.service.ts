@@ -11,6 +11,7 @@ export interface Usuario {
   telefono?: string;
   rol: 'admin' | 'cliente';
   activo: boolean;
+  fecha_creacion?: string;
 }
 
 export interface AuthResponse {
@@ -53,10 +54,9 @@ export class AuthService {
   }
 
   logout(): void {
-    // Optionally call backend to invalidate refresh token
-    const token = this.getAccessToken();
-    if (token) {
-      this.http.post(`${this.API_URL}/logout`, {}).subscribe({
+    const refreshToken = this.getRefreshToken();
+    if (refreshToken) {
+      this.http.post(`${this.API_URL}/logout`, { refresh_token: refreshToken }).subscribe({
         error: () => console.warn('Backend logout failed, but clearing local state anyway.')
       });
     }
@@ -94,6 +94,18 @@ export class AuthService {
         this.currentUserSignal.set(user);
       })
     );
+  }
+
+  updateProfile(profileData: { nombre?: string; apellido?: string; telefono?: string }): Observable<Usuario> {
+    return this.http.put<Usuario>(`${this.API_URL}/me`, profileData).pipe(
+      tap(user => {
+        this.currentUserSignal.set(user);
+      })
+    );
+  }
+
+  changePassword(payload: { current_password: string; new_password: string }): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.API_URL}/me/password`, payload);
   }
 
   private checkInitialAuth(): void {

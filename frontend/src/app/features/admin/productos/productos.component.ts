@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
+import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
   selector: 'app-admin-productos',
@@ -294,6 +295,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 export class AdminProductosComponent implements OnInit {
   private readonly adminService = inject(AdminService);
   private readonly fb = inject(FormBuilder);
+  private readonly toast = inject(ToastService);
 
   readonly Search = Search;
   readonly Plus = Plus;
@@ -439,6 +441,7 @@ export class AdminProductosComponent implements OnInit {
   guardarProducto(): void {
     if (this.productForm.invalid || this.saving()) {
       this.productForm.markAllAsTouched();
+      this.toast.warning('Completa los campos requeridos del producto.');
       return;
     }
 
@@ -451,6 +454,7 @@ export class AdminProductosComponent implements OnInit {
       const productId = this.editingProductId();
       if (!productId) {
         this.formError.set('No se pudo identificar el producto a editar.');
+        this.toast.error('No se pudo identificar el producto a editar.');
         this.saving.set(false);
         return;
       }
@@ -459,10 +463,13 @@ export class AdminProductosComponent implements OnInit {
         next: () => {
           this.saving.set(false);
           this.modalOpen.set(false);
+          this.toast.success('Producto actualizado correctamente.');
           this.cargarProductos();
         },
-        error: () => {
-          this.formError.set('No se pudo actualizar el producto. Revisa los campos ingresados.');
+        error: (error: unknown) => {
+          const message = this.extractApiMessage(error, 'No se pudo actualizar el producto. Revisa los campos ingresados.');
+          this.formError.set(message);
+          this.toast.error(message);
           this.saving.set(false);
         },
       });
@@ -485,10 +492,13 @@ export class AdminProductosComponent implements OnInit {
       next: () => {
         this.saving.set(false);
         this.modalOpen.set(false);
+        this.toast.success('Producto creado correctamente.');
         this.cargarProductos();
       },
-      error: () => {
-        this.formError.set('No se pudo crear el producto. Revisa datos de SKU y precio.');
+      error: (error: unknown) => {
+        const message = this.extractApiMessage(error, 'No se pudo crear el producto. Revisa datos de SKU y precio.');
+        this.formError.set(message);
+        this.toast.error(message);
         this.saving.set(false);
       },
     });
@@ -504,10 +514,12 @@ export class AdminProductosComponent implements OnInit {
     this.adminService.deleteProducto(product.id).subscribe({
       next: () => {
         this.deletingId.set(null);
+        this.toast.success(`Producto "${product.nombre}" desactivado.`);
         this.cargarProductos();
       },
-      error: () => {
+      error: (error: unknown) => {
         this.deletingId.set(null);
+        this.toast.error(this.extractApiMessage(error, 'No se pudo desactivar el producto.'));
       },
     });
   }
@@ -534,6 +546,7 @@ export class AdminProductosComponent implements OnInit {
         this.activosCount.set(0);
         this.sinStockCount.set(0);
         this.loading.set(false);
+        this.toast.error('No se pudo cargar el listado de productos.');
       },
     });
   }
@@ -553,12 +566,18 @@ export class AdminProductosComponent implements OnInit {
   private loadMetadata(): void {
     this.adminService.getCategorias().subscribe({
       next: (response) => this.categorias.set(response.items),
-      error: () => this.categorias.set([]),
+      error: () => {
+        this.categorias.set([]);
+        this.toast.warning('No se pudieron cargar categorias.');
+      },
     });
 
     this.adminService.getMarcas().subscribe({
       next: (response) => this.marcas.set(response.items),
-      error: () => this.marcas.set([]),
+      error: () => {
+        this.marcas.set([]);
+        this.toast.warning('No se pudieron cargar marcas.');
+      },
     });
   }
 
@@ -590,5 +609,16 @@ export class AdminProductosComponent implements OnInit {
       marca_id: value.marca_id ?? null,
       activo: Boolean(value.activo),
     };
+  }
+
+  private extractApiMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const apiError = (error as { error?: { detail?: string } }).error;
+      if (apiError?.detail) {
+        return apiError.detail;
+      }
+    }
+
+    return fallback;
   }
 }
