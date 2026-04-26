@@ -7,6 +7,7 @@ import { RouterModule } from '@angular/router';
 
 export interface ProductData {
   id: number;
+  slug?: string;
   nombre: string;
   precio: number;
   precio_oferta?: number;
@@ -32,7 +33,7 @@ export interface ProductData {
       <div 
         class="relative w-full aspect-square flex items-center justify-center p-6 overflow-hidden cursor-pointer"
         [ngClass]="requiresWhiteBg ? 'bg-white' : 'bg-transparent'"
-        [routerLink]="['/producto', product.nombre.toLowerCase().replace(' ', '-').substring(0, 15)]"
+        [routerLink]="['/producto', getProductSlug(product)]"
       >
         <img 
           [src]="product.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" 
@@ -49,7 +50,7 @@ export interface ProductData {
         
         <h3 
           class="text-lg font-bold text-text-primary leading-tight mb-2 cursor-pointer hover:text-accent-primary transition-colors line-clamp-2"
-          [routerLink]="['/producto', product.nombre.toLowerCase().replace(' ', '-').substring(0, 15)]"
+          [routerLink]="['/producto', getProductSlug(product)]"
         >
           {{ product.nombre }}
         </h3>
@@ -86,4 +87,19 @@ export class ProductCardComponent {
   @Output() onClick = new EventEmitter<ProductData>();
   
   readonly ShoppingCart = ShoppingCart;
+
+  getProductSlug(product: ProductData): string {
+    if (product.slug && product.slug.trim()) {
+      return product.slug;
+    }
+
+    return product.nombre
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
 }
