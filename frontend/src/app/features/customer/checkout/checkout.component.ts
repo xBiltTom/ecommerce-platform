@@ -266,7 +266,7 @@ export class CheckoutComponent implements OnInit {
     });
   }
 
-  procesarOrden() {
+  async procesarOrden() {
     const dirId = this.direccionSeleccionada();
     const pago = this.metodoPago();
 
@@ -277,6 +277,14 @@ export class CheckoutComponent implements OnInit {
 
     this.loading.set(true);
     this.errorMessage.set('');
+
+    try {
+      await this.cartService.flushPendingSync();
+    } catch {
+      this.loading.set(false);
+      this.errorMessage.set('No se pudo sincronizar el carrito. Intenta nuevamente en unos segundos.');
+      return;
+    }
 
     const payload = {
       direccion_id: dirId,

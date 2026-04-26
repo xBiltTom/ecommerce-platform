@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, map, Observable, of } from 'rxjs';
 import { ProductData } from '../../shared/components/product-card/product-card.component';
 import { ToastService } from './toast.service';
 import { AuthService } from './auth.service';
@@ -35,7 +35,6 @@ interface BackendCartResponse {
   providedIn: 'root'
 })
 export class CartService {
-  // Estado reactivo centralizado usando Signals (Angular 16+)
   private cartItemsSignal = signal<CartItem[]>([]);
   private readonly toast = inject(ToastService);
   private readonly authService = inject(AuthService);
@@ -43,12 +42,19 @@ export class CartService {
 
   private readonly guestStorageKey = 'protech_cart_guest';
   private readonly cartApiUrl = 'http://localhost:8000/api/v1/carrito';
+  private readonly remoteSyncDelayMs = 1200;
+  private readonly remoteSyncRetryDelayMs = 3000;
 
   private activeUserId: string | null = null;
+  private guestCartMigrated = false;
+  private guestCartSyncInProgress = false;
+  private remoteSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private remoteSyncInProgress = false;
+  private pendingRemoteSnapshot: CartItem[] | null = null;
+  private pendingSyncPromise: Promise<void> | null = null;
 
-  // Señales computadas (derivadas) para fácil consumo en la UI
   public readonly items = this.cartItemsSignal.asReadonly();
-  
+
   public readonly totalItems = computed(() => {
     return this.cartItemsSignal().reduce((acc, item) => acc + item.cantidad, 0);
   });
@@ -56,9 +62,6 @@ export class CartService {
   public readonly totalAmount = computed(() => {
     return this.cartItemsSignal().reduce((acc, item) => acc + item.subtotal, 0);
   });
-
-  private guestCartMigrated = false;
-  private guestCartSyncInProgress = false;
 
   constructor() {
     effect(
@@ -80,11 +83,158 @@ export class CartService {
         }
 
         this.activeUserId = null;
+        this.cancelPendingRemoteSync();
         this.guestCartMigrated = false;
         this.loadGuestFromLocalStorage();
       },
       { allowSignalWrites: true }
     );
+  }
+
+  public addToCart(producto: ProductData, cantidad: number = 1): void {
+    if (this.isAuthenticatedCustomer()) {
+      this.cartItemsSignal.update((items) => this.mergeLocalCartItem(items, producto, cantidad));
+      this.scheduleAuthenticatedSync();
+      this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
+      return;
+    }
+
+    this.cartItemsSignal.update((items) => {
+      const updatedItems = this.mergeLocalCartItem(items, producto, cantidad);
+      this.saveGuestToLocalStorage(updatedItems);
+      this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
+      return updatedItems;
+    });
+  }
+
+  public removeFromCart(productoId: number): void {
+    if (this.isAuthenticatedCustomer()) {
+      this.cartItemsSignal.update((items) => items.filter((entry) => entry.producto.id !== productoId));
+      this.scheduleAuthenticatedSync();
+      this.toast.info('Producto eliminado del carrito.', 'Carrito');
+      return;
+    }
+
+    this.cartItemsSignal.update((items) => {
+      const updatedItems = items.filter((item) => item.producto.id !== productoId);
+      this.saveGuestToLocalStorage(updatedItems);
+      this.toast.info('Producto eliminado del carrito.', 'Carrito');
+      return updatedItems;
+    });
+  }
+
+  public updateQuantity(productoId: number, cantidad: number): void {
+    if (cantidad <= 0) {
+      this.removeFromCart(productoId);
+      return;
+    }
+
+    if (this.isAuthenticatedCustomer()) {
+      this.cartItemsSignal.update((items) => items.map((item) => {
+        if (item.producto.id === productoId) {
+          return {
+            ...item,
+            cantidad,
+            subtotal: this.calculateSubtotal(item.producto, cantidad),
+          };
+        }
+        return item;
+      }));
+      this.scheduleAuthenticatedSync();
+      return;
+    }
+
+    this.cartItemsSignal.update((items) => {
+      const updatedItems = items.map((item) => {
+        if (item.producto.id === productoId) {
+          return {
+            ...item,
+            cantidad,
+            subtotal: this.calculateSubtotal(item.producto, cantidad),
+          };
+        }
+        return item;
+      });
+      this.saveGuestToLocalStorage(updatedItems);
+      return updatedItems;
+    });
+  }
+
+  public clearCart(): void {
+    if (this.isAuthenticatedCustomer()) {
+      this.cancelPendingRemoteSync();
+      this.cartItemsSignal.set([]);
+
+      this.http.delete<{ message: string }>(`${this.cartApiUrl}`, {
+        context: this.getSkipToastContext(),
+      }).pipe(
+        catchError(() => of(null))
+      ).subscribe(() => {
+        this.loadRemoteCart(true);
+      });
+      return;
+    }
+
+    this.cartItemsSignal.set([]);
+    this.saveGuestToLocalStorage([]);
+  }
+
+  public reloadCart(): void {
+    if (this.isAuthenticatedCustomer()) {
+      if (this.hasPendingRemoteChanges()) {
+        void this.flushPendingSync().catch(() => {});
+        return;
+      }
+
+      this.loadRemoteCart();
+      return;
+    }
+
+    this.loadGuestFromLocalStorage();
+  }
+
+  public async flushPendingSync(): Promise<void> {
+    if (!this.isAuthenticatedCustomer()) {
+      this.cancelPendingRemoteSync();
+      return;
+    }
+
+    this.clearRemoteSyncTimer();
+
+    if (this.remoteSyncInProgress) {
+      await this.pendingSyncPromise;
+      if (this.pendingRemoteSnapshot) {
+        return this.flushPendingSync();
+      }
+      return;
+    }
+
+    if (!this.pendingRemoteSnapshot) {
+      return;
+    }
+
+    const syncUserId = this.activeUserId;
+    const snapshot = this.cloneCartItems(this.pendingRemoteSnapshot);
+    this.pendingRemoteSnapshot = null;
+    this.remoteSyncInProgress = true;
+
+    const syncPromise = this.syncRemoteCartSnapshot(syncUserId, snapshot)
+      .catch((error) => {
+        if (syncUserId && syncUserId === this.activeUserId && this.isAuthenticatedCustomer() && !this.pendingRemoteSnapshot) {
+          this.pendingRemoteSnapshot = this.cloneCartItems(this.cartItemsSignal());
+        }
+        if (syncUserId && syncUserId === this.activeUserId && this.isAuthenticatedCustomer()) {
+          this.scheduleAuthenticatedSync(this.remoteSyncRetryDelayMs, false);
+        }
+        throw error;
+      })
+      .finally(() => {
+        this.remoteSyncInProgress = false;
+        this.pendingSyncPromise = null;
+      });
+
+    this.pendingSyncPromise = syncPromise;
+    await syncPromise;
   }
 
   private getGuestCartFromStorage(): CartItem[] {
@@ -150,153 +300,127 @@ export class CartService {
     });
   }
 
-  public addToCart(producto: ProductData, cantidad: number = 1): void {
-    if (this.isAuthenticatedCustomer()) {
-      this.http.post<BackendCartResponse>(`${this.cartApiUrl}/items`, {
-        producto_id: producto.id,
-        cantidad,
-      }).subscribe({
-        next: (cart) => {
-          this.setItemsFromBackendCart(cart);
-          this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
-        },
-        error: () => {},
-      });
-      return;
-    }
-
-    this.cartItemsSignal.update(items => {
-      const existingItemIndex = items.findIndex(item => item.producto.id === producto.id);
-      const currentPrice = producto.precio_oferta || producto.precio;
-      
-      let updatedItems = [...items];
-      
-      if (existingItemIndex > -1) {
-        // Actualiza cantidad y subtotal
-        const existingItem = updatedItems[existingItemIndex];
-        const newCantidad = existingItem.cantidad + cantidad;
-        updatedItems[existingItemIndex] = {
-          ...existingItem,
-          cantidad: newCantidad,
-          subtotal: newCantidad * currentPrice
-        };
-      } else {
-        // Nuevo item
-        updatedItems.push({
-          producto,
-          cantidad,
-          subtotal: cantidad * currentPrice
-        });
-      }
-      
-      this.saveGuestToLocalStorage(updatedItems);
-      this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
-      return updatedItems;
-    });
-  }
-
-  public removeFromCart(productoId: number): void {
-    if (this.isAuthenticatedCustomer()) {
-      const item = this.cartItemsSignal().find(entry => entry.producto.id === productoId);
-      if (!item?.cartItemId) {
-        this.loadRemoteCart();
-        return;
-      }
-
-      this.http.delete<{ message: string }>(`${this.cartApiUrl}/items/${item.cartItemId}`).subscribe({
-        next: () => {
-          this.cartItemsSignal.update(items => items.filter(entry => entry.producto.id !== productoId));
-          this.toast.info('Producto eliminado del carrito.', 'Carrito');
-          this.loadRemoteCart(true);
-        },
-        error: () => {},
-      });
-      return;
-    }
-
-    this.cartItemsSignal.update(items => {
-      const updatedItems = items.filter(item => item.producto.id !== productoId);
-      this.saveGuestToLocalStorage(updatedItems);
-      this.toast.info('Producto eliminado del carrito.', 'Carrito');
-      return updatedItems;
-    });
-  }
-
-  public updateQuantity(productoId: number, cantidad: number): void {
-    if (cantidad <= 0) {
-      this.removeFromCart(productoId);
-      return;
-    }
-
-    if (this.isAuthenticatedCustomer()) {
-      const item = this.cartItemsSignal().find(entry => entry.producto.id === productoId);
-      if (!item?.cartItemId) {
-        this.loadRemoteCart();
-        return;
-      }
-
-      this.http.put<BackendCartResponse>(`${this.cartApiUrl}/items/${item.cartItemId}`, { cantidad }).subscribe({
-        next: (cart) => {
-          this.setItemsFromBackendCart(cart);
-        },
-        error: () => {},
-      });
-      return;
-    }
-
-    this.cartItemsSignal.update(items => {
-      const updatedItems = items.map(item => {
-        if (item.producto.id === productoId) {
-          const currentPrice = item.producto.precio_oferta || item.producto.precio;
-          return {
-            ...item,
-            cantidad,
-            subtotal: cantidad * currentPrice
-          };
-        }
-        return item;
-      });
-      this.saveGuestToLocalStorage(updatedItems);
-      return updatedItems;
-    });
-  }
-
-  public clearCart(): void {
-    if (this.isAuthenticatedCustomer()) {
-      this.cartItemsSignal.set([]);
-
-      this.http.delete<{ message: string }>(`${this.cartApiUrl}`, {
-        context: this.getSkipToastContext(),
-      }).pipe(
-        catchError(() => of(null))
-      ).subscribe(() => {
-        this.loadRemoteCart(true);
-      });
-      return;
-    }
-
-    this.cartItemsSignal.set([]);
-    this.saveGuestToLocalStorage([]);
-  }
-
-  public reloadCart(): void {
-    if (this.isAuthenticatedCustomer()) {
-      this.loadRemoteCart();
-      return;
-    }
-
-    this.loadGuestFromLocalStorage();
-  }
-
   private isAuthenticatedCustomer(): boolean {
     return this.authService.isAuthenticated() && !!this.authService.currentUser()?.id;
+  }
+
+  private hasPendingRemoteChanges(): boolean {
+    return !!this.pendingRemoteSnapshot || !!this.remoteSyncTimer || this.remoteSyncInProgress;
+  }
+
+  private scheduleAuthenticatedSync(delayMs = this.remoteSyncDelayMs, captureSnapshot = true): void {
+    if (!this.isAuthenticatedCustomer()) {
+      return;
+    }
+
+    if (captureSnapshot) {
+      this.pendingRemoteSnapshot = this.cloneCartItems(this.cartItemsSignal());
+    }
+
+    this.clearRemoteSyncTimer();
+    this.remoteSyncTimer = setTimeout(() => {
+      void this.flushPendingSync().catch(() => {});
+    }, delayMs);
+  }
+
+  private clearRemoteSyncTimer(): void {
+    if (this.remoteSyncTimer) {
+      clearTimeout(this.remoteSyncTimer);
+      this.remoteSyncTimer = null;
+    }
+  }
+
+  private cancelPendingRemoteSync(): void {
+    this.clearRemoteSyncTimer();
+    this.pendingRemoteSnapshot = null;
+    this.pendingSyncPromise = null;
+    this.remoteSyncInProgress = false;
   }
 
   private getSkipToastContext(): HttpContext {
     return new HttpContext().set(SKIP_ERROR_TOAST, true);
   }
 
+  private async syncRemoteCartSnapshot(syncUserId: string | null, snapshot: CartItem[]): Promise<void> {
+    if (!syncUserId) {
+      return;
+    }
+
+    const remoteCart = await firstValueFrom(
+      this.http.get<BackendCartResponse>(`${this.cartApiUrl}`, {
+        context: this.getSkipToastContext(),
+      })
+    );
+
+    const operations = this.buildRemoteSyncOperations(remoteCart.items ?? [], snapshot);
+    if (operations.length > 0) {
+      await firstValueFrom(forkJoin(operations));
+    }
+
+    const refreshedCart = await firstValueFrom(
+      this.http.get<BackendCartResponse>(`${this.cartApiUrl}`, {
+        context: this.getSkipToastContext(),
+      })
+    );
+
+    if (syncUserId !== this.activeUserId || !this.isAuthenticatedCustomer()) {
+      return;
+    }
+
+    this.setItemsFromBackendCart(refreshedCart);
+  }
+
+  private buildRemoteSyncOperations(remoteItems: BackendCartItem[], desiredItems: CartItem[]): Observable<unknown>[] {
+    const remoteByProductId = new Map<number, BackendCartItem>(
+      remoteItems.map((item) => [item.producto_id, item])
+    );
+    const desiredProductIds = new Set(desiredItems.map((item) => item.producto.id));
+    const operations: Observable<unknown>[] = [];
+
+    desiredItems.forEach((item) => {
+      const remoteItem = remoteByProductId.get(item.producto.id);
+      if (!remoteItem) {
+        operations.push(
+          this.http.post<BackendCartResponse>(
+            `${this.cartApiUrl}/items`,
+            {
+              producto_id: item.producto.id,
+              cantidad: item.cantidad,
+            },
+            { context: this.getSkipToastContext() }
+          )
+        );
+        return;
+      }
+
+      if (remoteItem.cantidad !== item.cantidad) {
+        operations.push(
+          this.http.put<BackendCartResponse>(
+            `${this.cartApiUrl}/items/${remoteItem.id}`,
+            { cantidad: item.cantidad },
+            { context: this.getSkipToastContext() }
+          )
+        );
+      }
+    });
+
+    remoteItems.forEach((item) => {
+      if (!desiredProductIds.has(item.producto_id)) {
+        operations.push(
+          this.http.delete<{ message: string }>(
+            `${this.cartApiUrl}/items/${item.id}`,
+            { context: this.getSkipToastContext() }
+          )
+        );
+      }
+    });
+
+    return operations;
+  }
+
   private loadRemoteCart(silent = false): void {
+    const requestUserId = this.activeUserId;
+
     this.http.get<BackendCartResponse>(`${this.cartApiUrl}`, {
       context: this.getSkipToastContext(),
     }).pipe(
@@ -306,6 +430,14 @@ export class CartService {
         if (!silent) {
           this.cartItemsSignal.set([]);
         }
+        return;
+      }
+
+      if (this.hasPendingRemoteChanges()) {
+        return;
+      }
+
+      if (!requestUserId || requestUserId !== this.activeUserId || !this.isAuthenticatedCustomer()) {
         return;
       }
 
@@ -327,6 +459,51 @@ export class CartService {
     }));
 
     this.cartItemsSignal.set(mappedItems);
+  }
+
+  private mergeLocalCartItem(items: CartItem[], producto: ProductData, cantidad: number): CartItem[] {
+    const existingItemIndex = items.findIndex((item) => item.producto.id === producto.id);
+    if (existingItemIndex === -1) {
+      return [
+        ...items,
+        {
+          producto,
+          cantidad,
+          subtotal: this.calculateSubtotal(producto, cantidad),
+        },
+      ];
+    }
+
+    const updatedItems = [...items];
+    const existingItem = updatedItems[existingItemIndex];
+    const nextCantidad = existingItem.cantidad + cantidad;
+    updatedItems[existingItemIndex] = {
+      ...existingItem,
+      producto: {
+        ...existingItem.producto,
+        ...producto,
+      },
+      cantidad: nextCantidad,
+      subtotal: this.calculateSubtotal({
+        ...existingItem.producto,
+        ...producto,
+      }, nextCantidad),
+    };
+    return updatedItems;
+  }
+
+  private calculateSubtotal(producto: ProductData, cantidad: number): number {
+    const currentPrice = producto.precio_oferta || producto.precio;
+    return cantidad * currentPrice;
+  }
+
+  private cloneCartItems(items: CartItem[]): CartItem[] {
+    return items.map((item) => ({
+      cartItemId: item.cartItemId,
+      producto: { ...item.producto },
+      cantidad: item.cantidad,
+      subtotal: item.subtotal,
+    }));
   }
 
   private saveGuestToLocalStorage(items: CartItem[]): void {
