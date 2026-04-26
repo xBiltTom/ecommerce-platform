@@ -278,8 +278,8 @@ export class CatalogComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(true);
   filters = signal<CatalogFilters>({ ...DEFAULT_CATALOG_FILTERS });
   searchInput = signal<string>('');
-  priceMinInput = signal<string>('');
-  priceMaxInput = signal<string>('');
+  priceMinInput = signal<number | null>(null);
+  priceMaxInput = signal<number | null>(null);
   total = signal<number>(0);
   totalPages = signal<number>(0);
   isMobileFiltersOpen = signal<boolean>(false);
@@ -322,8 +322,8 @@ export class CatalogComponent implements OnInit, OnDestroy {
 
       this.filters.set(parsedFilters);
       this.searchInput.set(parsedFilters.buscar);
-      this.priceMinInput.set(parsedFilters.precioMin !== null ? String(parsedFilters.precioMin) : '');
-      this.priceMaxInput.set(parsedFilters.precioMax !== null ? String(parsedFilters.precioMax) : '');
+      this.priceMinInput.set(parsedFilters.precioMin);
+      this.priceMaxInput.set(parsedFilters.precioMax);
 
       this.fetchProducts(parsedFilters);
     });
@@ -377,15 +377,15 @@ export class CatalogComponent implements OnInit, OnDestroy {
   }
 
   clearPriceFilter() {
-    this.priceMinInput.set('');
-    this.priceMaxInput.set('');
+    this.priceMinInput.set(null);
+    this.priceMaxInput.set(null);
     this.updateFilters({ precioMin: null, precioMax: null }, true);
   }
 
   clearFilters() {
     this.searchInput.set('');
-    this.priceMinInput.set('');
-    this.priceMaxInput.set('');
+    this.priceMinInput.set(null);
+    this.priceMaxInput.set(null);
     this.navigateWithFilters({
       ...DEFAULT_CATALOG_FILTERS,
       pageSize: DEFAULT_CATALOG_PAGE_SIZE,
@@ -534,12 +534,21 @@ export class CatalogComponent implements OnInit, OnDestroy {
     return Math.floor(parsed);
   }
 
-  private parsePriceInput(rawValue: string | null): number | null {
-    if (rawValue === null || rawValue.trim() === '') {
+  private parsePriceInput(rawValue: string | number | null | undefined): number | null {
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
       return null;
     }
 
-    const parsed = Number(rawValue);
+    const normalized =
+      typeof rawValue === 'string'
+        ? rawValue.trim().replace(',', '.')
+        : rawValue;
+
+    if (normalized === '') {
+      return null;
+    }
+
+    const parsed = Number(normalized);
     if (!Number.isFinite(parsed) || parsed < 0) {
       return null;
     }
