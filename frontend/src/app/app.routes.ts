@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard, adminGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -12,7 +13,7 @@ export const routes: Routes = [
   {
     path: 'auth',
     loadComponent: () => import('./features/auth/layout/auth-layout.component').then(m => m.AuthLayoutComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.guestGuard)],
+    canActivate: [guestGuard],
     children: [
       { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
       { path: 'register', loadComponent: () => import('./features/auth/register/register.component').then(m => m.RegisterComponent) },
@@ -22,7 +23,12 @@ export const routes: Routes = [
   {
     path: 'checkout',
     loadComponent: () => import('./features/customer/checkout/checkout.component').then(m => m.CheckoutComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+    canActivate: [authGuard]
+  },
+  {
+    path: 'admin',
+    loadChildren: () => import('./features/admin/admin.routes').then(m => m.adminRoutes),
+    canActivate: [adminGuard]
   },
   { path: 'ui-sandbox', loadComponent: () => import('./features/ui-sandbox/ui-sandbox.component').then(m => m.UiSandboxComponent) },
   { path: '**', redirectTo: '' }
