@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, RouterModule } from '@angular/router';
+import { LucideAngularModule, ArrowLeft } from 'lucide-angular';
 
 @Component({
   selector: 'app-auth-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, RouterModule, LucideAngularModule],
   template: `
     <div class="min-h-screen flex text-text-primary bg-bg-main">
       
@@ -40,8 +41,16 @@ import { RouterOutlet } from '@angular/router';
       </div>
 
       <!-- Right: Form Section -->
-      <div class="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 relative">
-        <div class="w-full max-w-md">
+      <div class="w-full lg:w-1/2 flex flex-col p-8 sm:p-12 relative overflow-y-auto">
+        <!-- Back Button -->
+        <div class="mb-8 self-start">
+          <a routerLink="/" class="flex items-center text-sm font-medium text-text-secondary hover:text-accent-primary transition-colors cursor-pointer group">
+            <lucide-icon [img]="ArrowLeft" [size]="16" class="mr-2 group-hover:-translate-x-1 transition-transform"></lucide-icon>
+            Volver a la tienda
+          </a>
+        </div>
+        
+        <div class="w-full max-w-md mx-auto flex-grow flex flex-col justify-center">
           <router-outlet></router-outlet>
         </div>
       </div>
@@ -50,4 +59,6 @@ import { RouterOutlet } from '@angular/router';
   `,
   styles: []
 })
-export class AuthLayoutComponent {}
+export class AuthLayoutComponent {
+  readonly ArrowLeft = ArrowLeft;
+}
