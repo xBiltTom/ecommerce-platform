@@ -60,6 +60,40 @@ export const adminGuard: CanActivateFn = (route, state) => {
   return false;
 };
 
+// Guard para rutas exclusivas de cliente (no admin)
+export const customerGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated()) {
+    if (authService.isAdmin()) {
+      router.navigate(['/admin']);
+      return false;
+    }
+    return true;
+  }
+
+  if (authService.getAccessToken()) {
+    return authService.fetchCurrentUser().pipe(
+      take(1),
+      map(user => {
+        if (user.rol === 'admin') {
+          router.navigate(['/admin']);
+          return false;
+        }
+        return true;
+      }),
+      catchError(() => {
+        router.navigate(['/auth/login'], { queryParams: { returnUrl: state.url } });
+        return of(false);
+      })
+    );
+  }
+
+  router.navigate(['/auth/login'], { queryParams: { returnUrl: state.url } });
+  return false;
+};
+
 // Guard para prevenir que usuarios autenticados entren a Login/Register
 export const guestGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);

@@ -76,6 +76,7 @@ async def update_me(
     service = UsuarioService(db)
     return await service.update_profile(
         current_user.id,
+        email=body.email,
         nombre=body.nombre,
         apellido=body.apellido,
         telefono=body.telefono,

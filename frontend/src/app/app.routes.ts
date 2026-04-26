@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard, guestGuard } from './core/guards/auth.guard';
+import { authGuard, adminGuard, customerGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -11,7 +11,7 @@ export const routes: Routes = [
       {
         path: 'mi-perfil',
         loadComponent: () => import('./features/customer/profile/profile.component').then(m => m.ProfileComponent),
-        canActivate: [authGuard],
+        canActivate: [customerGuard],
       },
     ]
   },

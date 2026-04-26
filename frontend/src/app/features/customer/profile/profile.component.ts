@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { LucideAngularModule, User, ShoppingBag, Eye, X, Loader, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-angular';
+import { LucideAngularModule, User, ShoppingBag, Eye, X, Loader, AlertCircle, ChevronLeft, ChevronRight, ShieldCheck, KeyRound } from 'lucide-angular';
 import { AuthService, Usuario } from '../../../core/services/auth.service';
 import {
   CheckoutService,
@@ -133,22 +133,20 @@ type ProfileSection = 'datos' | 'pedidos';
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <app-input
+                  id="profile_email"
+                  label="Correo"
+                  type="email"
+                  placeholder="tu@email.com"
+                  formControlName="email"
+                  [error]="profileSubmitted() && profileForm.controls.email.invalid ? emailErrorText() : ''"
+                ></app-input>
+
+                <app-input
                   id="profile_telefono"
                   label="Telefono"
                   placeholder="+51 999 999 999"
                   formControlName="telefono"
                 ></app-input>
-
-                <div class="flex flex-col gap-1.5 w-full">
-                  <label for="profile_email" class="text-sm font-medium text-text-secondary">Correo</label>
-                  <input
-                    id="profile_email"
-                    type="email"
-                    [value]="currentUser()?.email || ''"
-                    disabled
-                    class="w-full px-4 py-2 bg-bg-main border border-border-subtle rounded-sm text-text-secondary"
-                  >
-                </div>
               </div>
 
               <div class="pt-4 border-t border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -169,6 +167,58 @@ type ProfileSection = 'datos' | 'pedidos';
                 </app-button>
               </div>
             </form>
+
+            <div class="mt-8 pt-6 border-t border-border-subtle">
+              <div class="flex items-center gap-2 text-text-primary mb-5">
+                <lucide-icon [img]="KeyRound" [size]="18"></lucide-icon>
+                <h3 class="text-xl font-bold tracking-tight">Seguridad de acceso</h3>
+              </div>
+
+              <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <app-input
+                    id="current_password"
+                    label="Contraseña actual"
+                    type="password"
+                    placeholder="********"
+                    formControlName="current_password"
+                    [error]="passwordSubmitted() && passwordForm.controls.current_password.invalid ? 'Ingresa tu contraseña actual' : ''"
+                  ></app-input>
+
+                  <app-input
+                    id="new_password"
+                    label="Nueva contraseña"
+                    type="password"
+                    placeholder="Minimo 8 caracteres"
+                    formControlName="new_password"
+                    [error]="passwordSubmitted() && passwordForm.controls.new_password.invalid ? 'Minimo 8 caracteres' : ''"
+                  ></app-input>
+
+                  <app-input
+                    id="confirm_password"
+                    label="Confirmar contraseña"
+                    type="password"
+                    placeholder="Repite la nueva contraseña"
+                    formControlName="confirm_password"
+                    [error]="passwordSubmitted() && passwordForm.controls.confirm_password.invalid ? 'Confirma la contraseña' : ''"
+                  ></app-input>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                  <p class="text-xs uppercase tracking-[0.14em] text-text-secondary inline-flex items-center gap-2">
+                    <lucide-icon [img]="ShieldCheck" [size]="14"></lucide-icon>
+                    Protege tu cuenta con una clave única
+                  </p>
+
+                  <app-button variant="secondary" size="sm" type="submit" [disabled]="savingPassword()">
+                    <span class="inline-flex items-center gap-2">
+                      <lucide-icon *ngIf="savingPassword()" [img]="Loader" [size]="14" class="animate-spin"></lucide-icon>
+                      {{ savingPassword() ? 'Actualizando...' : 'Actualizar contraseña' }}
+                    </span>
+                  </app-button>
+                </div>
+              </form>
+            </div>
           </article>
 
           <article *ngIf="activeSection() === 'pedidos'" class="rounded-card border border-border-subtle bg-bg-surface p-6 md:p-8 space-y-6">
@@ -419,11 +469,15 @@ export class ProfileComponent implements OnInit {
   readonly AlertCircle = AlertCircle;
   readonly ChevronLeft = ChevronLeft;
   readonly ChevronRight = ChevronRight;
+  readonly ShieldCheck = ShieldCheck;
+  readonly KeyRound = KeyRound;
 
   readonly activeSection = signal<ProfileSection>('datos');
   readonly loadingProfile = signal(false);
   readonly savingProfile = signal(false);
   readonly profileSubmitted = signal(false);
+  readonly savingPassword = signal(false);
+  readonly passwordSubmitted = signal(false);
 
   readonly ordersLoading = signal(false);
   readonly pedidos = signal<PedidoHistorialItem[]>([]);
@@ -454,9 +508,16 @@ export class ProfileComponent implements OnInit {
   });
 
   readonly profileForm = this.fb.nonNullable.group({
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     apellido: ['', [Validators.required, Validators.maxLength(100)]],
     telefono: ['', [Validators.maxLength(30)]],
+  });
+
+  readonly passwordForm = this.fb.nonNullable.group({
+    current_password: ['', [Validators.required, Validators.minLength(8)]],
+    new_password: ['', [Validators.required, Validators.minLength(8)]],
+    confirm_password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   ngOnInit(): void {
@@ -496,6 +557,7 @@ export class ProfileComponent implements OnInit {
 
     const value = this.profileForm.getRawValue();
     const payload = {
+      email: value.email.trim().toLowerCase(),
       nombre: value.nombre.trim(),
       apellido: value.apellido.trim(),
       telefono: value.telefono.trim() || undefined,
@@ -511,6 +573,41 @@ export class ProfileComponent implements OnInit {
       },
       error: () => {
         this.savingProfile.set(false);
+      },
+    });
+  }
+
+  changePassword(): void {
+    this.passwordSubmitted.set(true);
+
+    if (this.passwordForm.invalid) {
+      this.passwordForm.markAllAsTouched();
+      return;
+    }
+
+    const value = this.passwordForm.getRawValue();
+    if (value.new_password !== value.confirm_password) {
+      this.toast.warning('La nueva contraseña y la confirmación no coinciden.', 'Seguridad');
+      return;
+    }
+
+    this.savingPassword.set(true);
+    this.authService.changePassword({
+      current_password: value.current_password,
+      new_password: value.new_password,
+    }).subscribe({
+      next: (response) => {
+        this.savingPassword.set(false);
+        this.passwordForm.reset({
+          current_password: '',
+          new_password: '',
+          confirm_password: '',
+        });
+        this.passwordSubmitted.set(false);
+        this.toast.success(response.message || 'Contraseña actualizada correctamente.', 'Seguridad');
+      },
+      error: () => {
+        this.savingPassword.set(false);
       },
     });
   }
@@ -679,9 +776,20 @@ export class ProfileComponent implements OnInit {
 
   profileCompletionPercentage(): number {
     const values = this.profileForm.getRawValue();
-    const fields = [values.nombre, values.apellido, values.telefono];
+    const fields = [values.email, values.nombre, values.apellido, values.telefono];
     const completed = fields.filter((field) => field.trim().length > 0).length;
     return Math.round((completed / fields.length) * 100);
+  }
+
+  emailErrorText(): string {
+    const control = this.profileForm.controls.email;
+    if (control.hasError('required')) {
+      return 'Correo obligatorio';
+    }
+    if (control.hasError('email')) {
+      return 'Ingresa un correo válido';
+    }
+    return 'Correo inválido';
   }
 
   trackByPedidoId(index: number, pedido: PedidoHistorialItem): string {
@@ -694,6 +802,7 @@ export class ProfileComponent implements OnInit {
 
   private patchProfileForm(user: Usuario): void {
     this.profileForm.patchValue({
+      email: user.email ?? '',
       nombre: user.nombre ?? '',
       apellido: user.apellido ?? '',
       telefono: user.telefono ?? '',

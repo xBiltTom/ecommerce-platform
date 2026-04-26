@@ -31,6 +31,7 @@ class UsuarioDetailResponse(UsuarioResponse):
 
 class UsuarioUpdateRequest(BaseModel):
     """Datos actualizables del perfil."""
+    email: EmailStr | None = None
     nombre: str | None = Field(None, min_length=1, max_length=100)
     apellido: str | None = Field(None, min_length=1, max_length=100)
     telefono: str | None = Field(None, max_length=30)

@@ -109,7 +109,7 @@ export class AuthService {
     );
   }
 
-  updateProfile(profileData: { nombre?: string; apellido?: string; telefono?: string }): Observable<Usuario> {
+  updateProfile(profileData: { email?: string; nombre?: string; apellido?: string; telefono?: string }): Observable<Usuario> {
     return this.http.put<Usuario>(`${this.API_URL}/me`, profileData).pipe(
       tap(user => {
         this.currentUserSignal.set(user);

@@ -4,7 +4,7 @@ Servicio de gestión de usuarios (perfil y admin).
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundException
+from app.exceptions import NotFoundException, ConflictException
 from app.repositories.usuario_repo import UsuarioRepository
 
 
@@ -24,6 +24,15 @@ class UsuarioService:
         usuario = await self.repo.get_by_id(usuario_id)
         if not usuario:
             raise NotFoundException("Usuario no encontrado")
+
+        email = kwargs.get("email")
+        if email is not None:
+            normalized_email = email.strip().lower()
+            existing = await self.repo.get_by_email(normalized_email)
+            if existing and str(existing.id) != str(usuario.id):
+                raise ConflictException("Ya existe un usuario con este email")
+            kwargs["email"] = normalized_email
+
         return await self.repo.update(usuario, **kwargs)
 
     async def list_users(self, page=1, page_size=20, rol=None, activo=None, buscar=None):
