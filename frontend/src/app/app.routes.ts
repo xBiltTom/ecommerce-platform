@@ -19,6 +19,11 @@ export const routes: Routes = [
       { path: '', redirectTo: 'login', pathMatch: 'full' }
     ]
   },
+  {
+    path: 'checkout',
+    loadComponent: () => import('./features/customer/checkout/checkout.component').then(m => m.CheckoutComponent),
+    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+  },
   { path: 'ui-sandbox', loadComponent: () => import('./features/ui-sandbox/ui-sandbox.component').then(m => m.UiSandboxComponent) },
   { path: '**', redirectTo: '' }
 ];

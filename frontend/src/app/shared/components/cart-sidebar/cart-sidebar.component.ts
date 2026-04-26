@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule, X, Trash2, Plus, Minus, ArrowRight, ShoppingCart } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
 import { ButtonComponent } from '../button/button.component';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 
 @Component({
   selector: 'app-cart-sidebar',
@@ -107,10 +107,9 @@ import { RouterModule } from '@angular/router';
         
         <app-button 
           variant="primary" 
-          class="w-full justify-center" 
+          [fullWidth]="true" 
           size="lg"
-          (onClick)="close.emit()"
-          routerLink="/checkout"
+          (onClick)="goToCheckout()"
         >
           Proceder al pago <lucide-icon [img]="ArrowRight" class="ml-2" [size]="18"></lucide-icon>
         </app-button>
@@ -124,6 +123,7 @@ export class CartSidebarComponent {
   @Output() close = new EventEmitter<void>();
 
   cartService = inject(CartService);
+  private router = inject(Router);
 
   readonly X = X;
   readonly Trash2 = Trash2;
@@ -131,4 +131,9 @@ export class CartSidebarComponent {
   readonly Minus = Minus;
   readonly ArrowRight = ArrowRight;
   readonly ShoppingCart = ShoppingCart;
+
+  goToCheckout() {
+    this.close.emit();
+    this.router.navigate(['/checkout']);
+  }
 }
