@@ -118,6 +118,7 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
 
             <div *ngIf="authService.isAuthenticated()" class="flex items-center space-x-4">
               <button
+                *ngIf="!authService.isAdmin()"
                 class="text-text-secondary transition-all duration-200 hover:text-text-primary hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
                 [ngClass]="isOnProfileRoute() ? 'text-accent-primary' : ''"
                 aria-label="Mi perfil"
@@ -195,7 +196,7 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
             <button type="button" class="w-full text-left text-text-primary font-medium" (click)="navigateToCatalog()">Catálogo</button>
 
             <button
-              *ngIf="authService.isAuthenticated()"
+              *ngIf="authService.isAuthenticated() && !authService.isAdmin()"
               type="button"
               class="w-full text-left text-text-secondary hover:text-text-primary"
               (click)="goToProfile()"
