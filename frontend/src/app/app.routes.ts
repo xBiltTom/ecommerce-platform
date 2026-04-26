@@ -7,7 +7,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/public/layout/public-layout.component').then(m => m.PublicLayoutComponent),
     children: [
       { path: '', loadComponent: () => import('./features/public/catalog/catalog.component').then(m => m.CatalogComponent) },
-      { path: 'producto/:slug', loadComponent: () => import('./features/public/product-detail/product-detail.component').then(m => m.ProductDetailComponent) }
+      { path: 'producto/:slug', loadComponent: () => import('./features/public/product-detail/product-detail.component').then(m => m.ProductDetailComponent) },
+      {
+        path: 'mi-perfil',
+        loadComponent: () => import('./features/customer/profile/profile.component').then(m => m.ProfileComponent),
+        canActivate: [authGuard],
+      },
     ]
   },
   {

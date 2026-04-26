@@ -118,10 +118,21 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
 
             <div *ngIf="authService.isAuthenticated()" class="flex items-center space-x-4">
               <button
+                class="text-text-secondary transition-all duration-200 hover:text-text-primary hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
+                [ngClass]="isOnProfileRoute() ? 'text-accent-primary' : ''"
+                aria-label="Mi perfil"
+                routerLink="/mi-perfil"
+                (click)="closeNavigationLayers()"
+              >
+                <lucide-icon [img]="User" [size]="20"></lucide-icon>
+              </button>
+
+              <button
                 *ngIf="authService.isAdmin()"
                 class="text-accent-primary hover:text-accent-hover transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
                 aria-label="Panel de Administración"
                 routerLink="/admin"
+                (click)="closeNavigationLayers()"
               >
                 <lucide-icon [img]="User" [size]="20"></lucide-icon>
               </button>
@@ -182,6 +193,15 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
         <div *ngIf="isMobileMenuOpen()" class="md:hidden border-t border-border-subtle bg-bg-surface/95">
           <div class="max-w-7xl mx-auto px-4 py-4 space-y-5">
             <button type="button" class="w-full text-left text-text-primary font-medium" (click)="navigateToCatalog()">Catálogo</button>
+
+            <button
+              *ngIf="authService.isAuthenticated()"
+              type="button"
+              class="w-full text-left text-text-secondary hover:text-text-primary"
+              (click)="goToProfile()"
+            >
+              Mi perfil
+            </button>
 
             <div>
               <p class="text-xs uppercase tracking-wider text-text-secondary mb-2">Categorías</p>
@@ -330,7 +350,13 @@ export class PublicLayoutComponent implements OnInit, OnDestroy {
   }
 
   isOnCatalogRoute(): boolean {
-    return this.router.url.startsWith('/');
+    const currentPath = this.router.url.split('?')[0].split('#')[0];
+    return currentPath === '/';
+  }
+
+  isOnProfileRoute(): boolean {
+    const currentPath = this.router.url.split('?')[0].split('#')[0];
+    return currentPath === '/mi-perfil';
   }
 
   toggleSearch() {
@@ -386,6 +412,11 @@ export class PublicLayoutComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/'], {
       queryParams: orden === 'reciente' ? {} : { orden, page: null },
     });
+  }
+
+  goToProfile() {
+    this.closeNavigationLayers();
+    void this.router.navigate(['/mi-perfil']);
   }
 
   navigateToCategory(categoryId: number) {
