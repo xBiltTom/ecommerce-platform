@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, tap, catchError, throwError, finalize } from 'rxjs';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
 import { ToastService } from './toast.service';
 
@@ -33,8 +33,10 @@ export class AuthService {
 
   // State using Signals
   private currentUserSignal = signal<Usuario | null>(null);
-  
+  private authResolvedSignal = signal(false);
+
   public readonly currentUser = this.currentUserSignal.asReadonly();
+  public readonly authResolved = this.authResolvedSignal.asReadonly();
   public readonly isAuthenticated = computed(() => !!this.currentUserSignal());
   public readonly isAdmin = computed(() => this.currentUserSignal()?.rol === 'admin');
 
@@ -70,9 +72,10 @@ export class AuthService {
         error: () => console.warn('Backend logout failed, but clearing local state anyway.')
       });
     }
-    
+
     this.clearTokens();
     this.currentUserSignal.set(null);
+    this.authResolvedSignal.set(true);
     this.toast.info('Has cerrado sesión correctamente.', 'Hasta pronto');
     this.router.navigate(['/auth/login']);
   }
@@ -105,6 +108,7 @@ export class AuthService {
     return this.http.get<Usuario>(`${this.API_URL}/me`, { context }).pipe(
       tap(user => {
         this.currentUserSignal.set(user);
+        this.authResolvedSignal.set(true);
       })
     );
   }
@@ -123,13 +127,20 @@ export class AuthService {
 
   private checkInitialAuth(): void {
     if (this.getAccessToken()) {
-      this.fetchCurrentUser(true).subscribe({
+      this.fetchCurrentUser(true).pipe(
+        finalize(() => {
+          this.authResolvedSignal.set(true);
+        })
+      ).subscribe({
         error: () => {
           // Si falla, el interceptor intentará hacer refresh.
           // Si el refresh falla, el interceptor limpiará la sesión.
         }
       });
+      return;
     }
+
+    this.authResolvedSignal.set(true);
   }
 
   // Refresh token method used by the interceptor
@@ -151,6 +162,7 @@ export class AuthService {
       catchError(err => {
         this.clearTokens();
         this.currentUserSignal.set(null);
+        this.authResolvedSignal.set(true);
         this.router.navigate(['/auth/login']);
         return throwError(() => err);
       })
