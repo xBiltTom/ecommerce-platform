@@ -4,6 +4,7 @@ import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CartService } from '../../../core/services/cart.service';
 import { CheckoutService, Direccion } from '../../../core/services/checkout.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { LucideAngularModule, CreditCard, MapPin, CheckCircle, Package } from 'lucide-angular';
@@ -183,6 +184,7 @@ export class CheckoutComponent implements OnInit {
   private checkoutService = inject(CheckoutService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   // Icons
   readonly CreditCard = CreditCard;
@@ -250,6 +252,7 @@ export class CheckoutComponent implements OnInit {
         this.mostrarFormularioDireccion.set(false);
         this.loadingDireccion.set(false);
         this.direccionForm.reset({ pais: 'Perú', es_principal: true });
+        this.toast.success('La nueva dirección fue guardada.', 'Dirección Agregada');
       },
       error: () => {
         // Fallback for UI visualization if backend is failing
@@ -258,6 +261,7 @@ export class CheckoutComponent implements OnInit {
         this.direccionSeleccionada.set(mockDir.id);
         this.mostrarFormularioDireccion.set(false);
         this.loadingDireccion.set(false);
+        this.toast.success('La nueva dirección fue guardada (mock).', 'Dirección Agregada');
       }
     });
   }
@@ -284,12 +288,14 @@ export class CheckoutComponent implements OnInit {
         this.cartService.clearCart();
         this.pedidoExitoso.set(true);
         this.loading.set(false);
+        this.toast.success('El pedido ha sido procesado correctamente.', '¡Pedido Confirmado!');
       },
       error: () => {
         // Fallback simulación exitosa
         this.cartService.clearCart();
         this.pedidoExitoso.set(true);
         this.loading.set(false);
+        this.toast.success('El pedido ha sido procesado correctamente.', '¡Pedido Confirmado!');
       }
     });
   }

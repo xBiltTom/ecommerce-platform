@@ -1,7 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable, of, catchError } from 'rxjs';
 import { ProductData } from '../../shared/components/product-card/product-card.component';
+import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
 
 export interface PaginatedResponse<T> {
   items: T[];
@@ -38,13 +39,14 @@ export class ProductService {
 
   getProductos(params: any = {}): Observable<PaginatedResponse<ProductData>> {
     let httpParams = new HttpParams();
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, true);
     Object.keys(params).forEach(key => {
       if (params[key] !== null && params[key] !== undefined && params[key] !== '') {
         httpParams = httpParams.set(key, params[key]);
       }
     });
 
-    return this.http.get<PaginatedResponse<ProductData>>(`${this.baseUrl}/productos`, { params: httpParams }).pipe(
+    return this.http.get<PaginatedResponse<ProductData>>(`${this.baseUrl}/productos`, { params: httpParams, context }).pipe(
       catchError(error => {
         console.error('Error fetching products', error);
         // Fallback a datos mockeados si el backend no está corriendo, para no romper la UI en desarrollo
@@ -65,13 +67,19 @@ export class ProductService {
   }
 
   getCategorias(): Observable<PaginatedResponse<Categoria>> {
-    return this.http.get<PaginatedResponse<Categoria>>(`${this.baseUrl}/categorias`).pipe(
+    return this.http.get<PaginatedResponse<Categoria>>(
+      `${this.baseUrl}/categorias`,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    ).pipe(
       catchError(() => of({ items: [{id: 1, nombre: 'Audio', slug: 'audio'}, {id: 2, nombre: 'Wearables', slug: 'wearables'}], total: 2, page: 1, page_size: 10, total_pages: 1 }))
     );
   }
 
   getMarcas(): Observable<PaginatedResponse<Marca>> {
-    return this.http.get<PaginatedResponse<Marca>>(`${this.baseUrl}/marcas`).pipe(
+    return this.http.get<PaginatedResponse<Marca>>(
+      `${this.baseUrl}/marcas`,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    ).pipe(
       catchError(() => of({ items: [{id: 1, nombre: 'Sony', slug: 'sony'}, {id: 2, nombre: 'Apple', slug: 'apple'}], total: 2, page: 1, page_size: 10, total_pages: 1 }))
     );
   }

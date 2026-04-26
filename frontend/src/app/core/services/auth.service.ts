@@ -1,7 +1,9 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, throwError, map, of } from 'rxjs';
+import { Observable, tap, catchError, throwError } from 'rxjs';
+import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
+import { ToastService } from './toast.service';
 
 export interface Usuario {
   id: string;
@@ -26,6 +28,7 @@ export interface AuthResponse {
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private toast = inject(ToastService);
   private readonly API_URL = 'http://localhost:8000/api/v1/auth';
 
   // State using Signals
@@ -41,28 +44,36 @@ export class AuthService {
 
   // --- Auth Actions ---
 
-  login(credentials: any): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.API_URL}/login`, credentials).pipe(
+  login(credentials: any, skipErrorToast = false): Observable<AuthResponse> {
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, skipErrorToast);
+
+    return this.http.post<AuthResponse>(`${this.API_URL}/login`, credentials, { context }).pipe(
       tap(res => {
         this.setTokens(res.access_token, res.refresh_token);
       })
     );
   }
 
-  register(userData: any): Observable<any> {
-    return this.http.post(`${this.API_URL}/register`, userData);
+  register(userData: any, skipErrorToast = false): Observable<any> {
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, skipErrorToast);
+    return this.http.post(`${this.API_URL}/register`, userData, { context });
   }
 
   logout(): void {
     const refreshToken = this.getRefreshToken();
     if (refreshToken) {
-      this.http.post(`${this.API_URL}/logout`, { refresh_token: refreshToken }).subscribe({
+      this.http.post(
+        `${this.API_URL}/logout`,
+        { refresh_token: refreshToken },
+        { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+      ).subscribe({
         error: () => console.warn('Backend logout failed, but clearing local state anyway.')
       });
     }
     
     this.clearTokens();
     this.currentUserSignal.set(null);
+    this.toast.info('Has cerrado sesión correctamente.', 'Hasta pronto');
     this.router.navigate(['/auth/login']);
   }
 
@@ -88,8 +99,10 @@ export class AuthService {
 
   // --- User Profile ---
 
-  fetchCurrentUser(): Observable<Usuario> {
-    return this.http.get<Usuario>(`${this.API_URL}/me`).pipe(
+  fetchCurrentUser(skipErrorToast = false): Observable<Usuario> {
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, skipErrorToast);
+
+    return this.http.get<Usuario>(`${this.API_URL}/me`, { context }).pipe(
       tap(user => {
         this.currentUserSignal.set(user);
       })
@@ -110,7 +123,7 @@ export class AuthService {
 
   private checkInitialAuth(): void {
     if (this.getAccessToken()) {
-      this.fetchCurrentUser().subscribe({
+      this.fetchCurrentUser(true).subscribe({
         error: () => {
           // Si falla, el interceptor intentará hacer refresh.
           // Si el refresh falla, el interceptor limpiará la sesión.
@@ -126,7 +139,11 @@ export class AuthService {
       return throwError(() => new Error('No refresh token available'));
     }
 
-    return this.http.post<AuthResponse>(`${this.API_URL}/refresh`, { refresh_token }).pipe(
+    return this.http.post<AuthResponse>(
+      `${this.API_URL}/refresh`,
+      { refresh_token },
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    ).pipe(
       tap(res => {
         // Al renovar, el backend podría enviar un nuevo access_token y opcionalmente un nuevo refresh_token
         this.setTokens(res.access_token, res.refresh_token || refresh_token);

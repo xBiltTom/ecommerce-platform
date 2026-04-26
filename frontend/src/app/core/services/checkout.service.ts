@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
 
 export interface Direccion {
   id: number;
@@ -27,16 +28,27 @@ export class CheckoutService {
   // -- Direcciones --
   
   getDirecciones(): Observable<Direccion[]> {
-    return this.http.get<Direccion[]>(`${this.API_URL}/direcciones`);
+    return this.http.get<Direccion[]>(
+      `${this.API_URL}/direcciones`,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    );
   }
 
   crearDireccion(direccion: Omit<Direccion, 'id'>): Observable<Direccion> {
-    return this.http.post<Direccion>(`${this.API_URL}/direcciones`, direccion);
+    return this.http.post<Direccion>(
+      `${this.API_URL}/direcciones`,
+      direccion,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    );
   }
 
   // -- Pedidos --
   
   procesarCheckout(pedido: PedidoRequest): Observable<any> {
-    return this.http.post(`${this.API_URL}/pedidos`, pedido);
+    return this.http.post(
+      `${this.API_URL}/pedidos`,
+      pedido,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    );
   }
 }

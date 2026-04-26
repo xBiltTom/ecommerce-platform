@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { LucideAngularModule, LogIn } from 'lucide-angular';
@@ -75,6 +76,7 @@ export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private toast = inject(ToastService);
 
   readonly LogIn = LogIn;
 
@@ -100,13 +102,14 @@ export class LoginComponent {
     this.loading.set(true);
     
     // Attempt Login
-    this.authService.login(this.loginForm.value).subscribe({
+    this.authService.login(this.loginForm.value, true).subscribe({
       next: () => {
         // Fetch current user after successful login
-        this.authService.fetchCurrentUser().subscribe({
+        this.authService.fetchCurrentUser(true).subscribe({
           next: () => {
             const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
             this.router.navigateByUrl(returnUrl);
+            this.toast.success('Bienvenido de vuelta.', 'Sesión iniciada');
           },
           error: () => {
             this.loading.set(false);

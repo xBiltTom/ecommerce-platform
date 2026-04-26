@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { LucideAngularModule, UserPlus } from 'lucide-angular';
@@ -90,6 +91,7 @@ export class RegisterComponent {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   readonly UserPlus = UserPlus;
 
@@ -116,7 +118,7 @@ export class RegisterComponent {
 
     this.loading.set(true);
     
-    this.authService.register(this.registerForm.value).subscribe({
+    this.authService.register(this.registerForm.value, true).subscribe({
       next: () => {
         // Al registrar exitosamente, procedemos a hacer login automáticamente
         const loginData = {
@@ -124,10 +126,13 @@ export class RegisterComponent {
           password: this.registerForm.value.password
         };
         
-        this.authService.login(loginData).subscribe({
+        this.authService.login(loginData, true).subscribe({
           next: () => {
-            this.authService.fetchCurrentUser().subscribe({
-              next: () => this.router.navigate(['/']),
+            this.authService.fetchCurrentUser(true).subscribe({
+              next: () => {
+                this.router.navigate(['/']);
+                this.toast.success('Tu cuenta ha sido creada exitosamente.', '¡Bienvenido a Protech!');
+              },
               error: () => this.router.navigate(['/auth/login'])
             });
           },

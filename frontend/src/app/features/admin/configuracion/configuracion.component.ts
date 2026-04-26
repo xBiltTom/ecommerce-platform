@@ -232,9 +232,8 @@ export class AdminConfiguracionComponent implements OnInit {
         this.profileSaving.set(false);
         this.toast.success('Perfil actualizado correctamente.');
       },
-      error: (error: unknown) => {
+      error: () => {
         this.profileSaving.set(false);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo actualizar el perfil.'));
       },
     });
   }
@@ -267,9 +266,8 @@ export class AdminConfiguracionComponent implements OnInit {
           confirm_password: '',
         });
       },
-      error: (error: unknown) => {
+      error: () => {
         this.passwordSaving.set(false);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo actualizar la contraseña. Verifica la actual.'));
       },
     });
   }
@@ -283,9 +281,7 @@ export class AdminConfiguracionComponent implements OnInit {
 
     this.authService.fetchCurrentUser().subscribe({
       next: (user) => this.applyUser(user),
-      error: (error: unknown) => {
-        this.toast.error(this.extractApiMessage(error, 'No se pudo cargar tu perfil en este momento.'));
-      },
+      error: () => {},
     });
   }
 
@@ -296,16 +292,5 @@ export class AdminConfiguracionComponent implements OnInit {
       apellido: user.apellido,
       telefono: user.telefono ?? '',
     });
-  }
-
-  private extractApiMessage(error: unknown, fallback: string): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const apiError = (error as { error?: { detail?: string } }).error;
-      if (apiError?.detail) {
-        return apiError.detail;
-      }
-    }
-
-    return fallback;
   }
 }

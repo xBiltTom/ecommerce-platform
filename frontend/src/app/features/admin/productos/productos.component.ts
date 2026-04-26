@@ -7,6 +7,7 @@ import {
   PaginatedResponse,
   ProductoCatalogo,
 } from '../../../core/services/admin.service';
+import { ToastService } from '../../../core/services/toast.service';
 import {
   Boxes,
   Check,
@@ -19,7 +20,7 @@ import {
   X,
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
-import { ToastService } from '../../../core/services/toast.service';
+
 
 @Component({
   selector: 'app-admin-productos',
@@ -466,10 +467,8 @@ export class AdminProductosComponent implements OnInit {
           this.toast.success('Producto actualizado correctamente.');
           this.cargarProductos();
         },
-        error: (error: unknown) => {
-          const message = this.extractApiMessage(error, 'No se pudo actualizar el producto. Revisa los campos ingresados.');
-          this.formError.set(message);
-          this.toast.error(message);
+        error: () => {
+          this.formError.set('No se pudo actualizar el producto. Revisa los campos ingresados.');
           this.saving.set(false);
         },
       });
@@ -495,10 +494,8 @@ export class AdminProductosComponent implements OnInit {
         this.toast.success('Producto creado correctamente.');
         this.cargarProductos();
       },
-      error: (error: unknown) => {
-        const message = this.extractApiMessage(error, 'No se pudo crear el producto. Revisa datos de SKU y precio.');
-        this.formError.set(message);
-        this.toast.error(message);
+      error: () => {
+        this.formError.set('No se pudo crear el producto. Revisa datos de SKU y precio.');
         this.saving.set(false);
       },
     });
@@ -517,9 +514,8 @@ export class AdminProductosComponent implements OnInit {
         this.toast.success(`Producto "${product.nombre}" desactivado.`);
         this.cargarProductos();
       },
-      error: (error: unknown) => {
+      error: () => {
         this.deletingId.set(null);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo desactivar el producto.'));
       },
     });
   }
@@ -546,7 +542,6 @@ export class AdminProductosComponent implements OnInit {
         this.activosCount.set(0);
         this.sinStockCount.set(0);
         this.loading.set(false);
-        this.toast.error('No se pudo cargar el listado de productos.');
       },
     });
   }
@@ -568,7 +563,6 @@ export class AdminProductosComponent implements OnInit {
       next: (response) => this.categorias.set(response.items),
       error: () => {
         this.categorias.set([]);
-        this.toast.warning('No se pudieron cargar categorias.');
       },
     });
 
@@ -576,7 +570,6 @@ export class AdminProductosComponent implements OnInit {
       next: (response) => this.marcas.set(response.items),
       error: () => {
         this.marcas.set([]);
-        this.toast.warning('No se pudieron cargar marcas.');
       },
     });
   }
@@ -609,16 +602,5 @@ export class AdminProductosComponent implements OnInit {
       marca_id: value.marca_id ?? null,
       activo: Boolean(value.activo),
     };
-  }
-
-  private extractApiMessage(error: unknown, fallback: string): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const apiError = (error as { error?: { detail?: string } }).error;
-      if (apiError?.detail) {
-        return apiError.detail;
-      }
-    }
-
-    return fallback;
   }
 }

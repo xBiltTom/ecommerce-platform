@@ -8,8 +8,9 @@ import {
   PaginatedResponse,
   UsuarioRol,
 } from '../../../core/services/admin.service';
-import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { ToastService } from '../../../core/services/toast.service';
+import { ButtonComponent } from '../../../shared/components/button/button.component';
+
 
 interface EstadoFiltro {
   label: string;
@@ -266,9 +267,8 @@ export class AdminUsuariosComponent implements OnInit {
         this.updatingId.set(null);
         this.toast.success(`Usuario ${!user.activo ? 'activado' : 'desactivado'} correctamente.`);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.updatingId.set(null);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo actualizar el estado del usuario.'));
       },
     });
   }
@@ -300,13 +300,12 @@ export class AdminUsuariosComponent implements OnInit {
         this.applyPagination(response);
         this.loading.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.usuarios.set([]);
         this.total.set(0);
         this.totalPages.set(0);
         this.recomputeLocalMetrics();
         this.loading.set(false);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo cargar la lista de usuarios.'));
       },
     });
   }
@@ -333,16 +332,5 @@ export class AdminUsuariosComponent implements OnInit {
     }
 
     return value === 'activo';
-  }
-
-  private extractApiMessage(error: unknown, fallback: string): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const apiError = (error as { error?: { detail?: string } }).error;
-      if (apiError?.detail) {
-        return apiError.detail;
-      }
-    }
-
-    return fallback;
   }
 }

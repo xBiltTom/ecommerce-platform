@@ -1,5 +1,6 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { ProductData } from '../../shared/components/product-card/product-card.component';
+import { ToastService } from './toast.service';
 
 export interface CartItem {
   producto: ProductData;
@@ -13,6 +14,7 @@ export interface CartItem {
 export class CartService {
   // Estado reactivo centralizado usando Signals (Angular 16+)
   private cartItemsSignal = signal<CartItem[]>([]);
+  private readonly toast = inject(ToastService);
 
   // Señales computadas (derivadas) para fácil consumo en la UI
   public readonly items = this.cartItemsSignal.asReadonly();
@@ -55,6 +57,7 @@ export class CartService {
       }
       
       this.saveToLocalStorage(updatedItems);
+      this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
       return updatedItems;
     });
   }
@@ -63,6 +66,7 @@ export class CartService {
     this.cartItemsSignal.update(items => {
       const updatedItems = items.filter(item => item.producto.id !== productoId);
       this.saveToLocalStorage(updatedItems);
+      this.toast.info('Producto eliminado del carrito.', 'Carrito');
       return updatedItems;
     });
   }

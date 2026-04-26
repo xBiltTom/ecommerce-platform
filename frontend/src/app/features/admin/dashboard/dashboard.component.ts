@@ -395,9 +395,8 @@ export class DashboardComponent implements OnInit {
         this.descargando.set(false);
         this.toast.success('Reporte PDF generado y descargado.');
       },
-      error: (error: unknown) => {
+      error: () => {
         this.descargando.set(false);
-        this.toast.error(this.extractApiMessage(error, 'No se pudo descargar el reporte PDF.'));
       },
     });
   }
@@ -450,10 +449,9 @@ export class DashboardComponent implements OnInit {
         this.kpis.set(response);
         this.loadingOverview.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.kpis.set(null);
         this.loadingOverview.set(false);
-        this.toast.error(this.extractApiMessage(error, 'No se pudieron cargar los KPIs del dashboard.'));
       },
     });
   }
@@ -466,10 +464,9 @@ export class DashboardComponent implements OnInit {
         this.ventasSeries.set(response);
         this.loadingVentas.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.ventasSeries.set([]);
         this.loadingVentas.set(false);
-        this.toast.warning(this.extractApiMessage(error, 'No se pudieron cargar las ventas por periodo.'));
       },
     });
   }
@@ -482,10 +479,9 @@ export class DashboardComponent implements OnInit {
         this.topProductos.set(response);
         this.loadingTop.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.topProductos.set([]);
         this.loadingTop.set(false);
-        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el top de productos.'));
       },
     });
   }
@@ -498,10 +494,9 @@ export class DashboardComponent implements OnInit {
         this.pedidosEstado.set(response);
         this.loadingEstados.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.pedidosEstado.set([]);
         this.loadingEstados.set(false);
-        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el estado de pedidos.'));
       },
     });
   }
@@ -520,10 +515,9 @@ export class DashboardComponent implements OnInit {
         }))); 
         this.loadingStock.set(false);
       },
-      error: (error: unknown) => {
+      error: () => {
         this.bajoStock.set([]);
         this.loadingStock.set(false);
-        this.toast.warning(this.extractApiMessage(error, 'No se pudo cargar el riesgo de stock.'));
       },
     });
   }
@@ -553,14 +547,4 @@ export class DashboardComponent implements OnInit {
     return new Intl.DateTimeFormat('es-PE', { month: 'short', year: '2-digit' }).format(date);
   }
 
-  private extractApiMessage(error: unknown, fallback: string): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const apiError = (error as { error?: { detail?: string } }).error;
-      if (apiError?.detail) {
-        return apiError.detail;
-      }
-    }
-
-    return fallback;
-  }
 }
