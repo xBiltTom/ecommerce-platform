@@ -5,6 +5,8 @@ import { AdminConfiguracionComponent } from './configuracion/configuracion.compo
 import { AdminPedidosComponent } from './pedidos/pedidos.component';
 import { AdminProductosComponent } from './productos/productos.component';
 import { AdminUsuariosComponent } from './usuarios/usuarios.component';
+import { AdminCategoriasComponent } from './categorias/categorias.component';
+import { AdminMarcasComponent } from './marcas/marcas.component';
 
 export const adminRoutes: Routes = [
   {
@@ -14,6 +16,8 @@ export const adminRoutes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'pedidos', component: AdminPedidosComponent },
       { path: 'productos', component: AdminProductosComponent },
+      { path: 'categorias', component: AdminCategoriasComponent },
+      { path: 'marcas', component: AdminMarcasComponent },
       { path: 'usuarios', component: AdminUsuariosComponent },
       { path: 'configuracion', component: AdminConfiguracionComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }

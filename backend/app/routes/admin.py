@@ -167,6 +167,32 @@ async def list_all_pedidos(
     )
 
 
+@router.get("/pedidos/{pedido_id}", response_model=PedidoResponse)
+async def get_pedido_admin(
+    pedido_id: str,
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = PedidoService(db)
+    pedido = await service.get_detail(pedido_id)
+    
+    # Construir respuesta
+    return PedidoResponse(
+        id=pedido.id,
+        nombre_destinatario=pedido.nombre_destinatario,
+        direccion_envio=pedido.direccion_envio,
+        ciudad_envio=pedido.ciudad_envio,
+        pais_envio=pedido.pais_envio,
+        subtotal=float(pedido.subtotal),
+        descuento=float(pedido.descuento),
+        costo_envio=float(pedido.costo_envio),
+        total=float(pedido.total),
+        estado=pedido.estado,
+        items=[PedidoItemResponse.model_validate(i) for i in (pedido.items or [])],
+        fecha_creacion=pedido.fecha_creacion,
+    )
+
+
 @router.put("/pedidos/{pedido_id}/estado", response_model=MessageResponse)
 async def update_pedido_estado(
     pedido_id: str,

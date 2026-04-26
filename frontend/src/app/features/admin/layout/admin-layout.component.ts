@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
-import { LucideAngularModule, LayoutDashboard, ShoppingBag, Users, PackageSearch, LogOut, Settings } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, ShoppingBag, Users, PackageSearch, LogOut, Settings, FolderTree, Tag } from 'lucide-angular';
 
 @Component({
   selector: 'app-admin-layout',
@@ -36,6 +36,16 @@ import { LucideAngularModule, LayoutDashboard, ShoppingBag, Users, PackageSearch
           <a routerLink="/admin/productos" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
             <lucide-icon [img]="PackageSearch" [size]="20" class="group-hover:scale-110 transition-transform"></lucide-icon>
             Productos
+          </a>
+
+          <a routerLink="/admin/categorias" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
+            <lucide-icon [img]="FolderTree" [size]="20" class="group-hover:scale-110 transition-transform"></lucide-icon>
+            Categorías
+          </a>
+          
+          <a routerLink="/admin/marcas" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
+            <lucide-icon [img]="Tag" [size]="20" class="group-hover:scale-110 transition-transform"></lucide-icon>
+            Marcas
           </a>
           
           <a routerLink="/admin/usuarios" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
@@ -87,6 +97,8 @@ export class AdminLayoutComponent {
   readonly PackageSearch = PackageSearch;
   readonly LogOut = LogOut;
   readonly Settings = Settings;
+  readonly FolderTree = FolderTree;
+  readonly Tag = Tag;
 
   logout() {
     this.authService.logout();

@@ -229,6 +229,10 @@ export class AdminService {
     return this.http.put<{ message: string }>(`${this.ADMIN_URL}/pedidos/${pedidoId}/estado`, payload);
   }
 
+  getPedidoDetalle(pedidoId: string): Observable<any> {
+    return this.http.get<any>(`${this.ADMIN_URL}/pedidos/${pedidoId}`);
+  }
+
   // -- Productos (CRUD) --
   getProductos(params: {
     page?: number;
@@ -271,9 +275,43 @@ export class AdminService {
     return this.http.get<PaginatedResponse<ProductoCatalogo>>(this.CATEGORIAS_URL, { params });
   }
 
+  getCategoriasPaginadas(page = 1, pageSize = 10): Observable<PaginatedResponse<any>> {
+    const params = this.toParams({ page, page_size: pageSize });
+    return this.http.get<PaginatedResponse<any>>(this.CATEGORIAS_URL, { params });
+  }
+
+  createCategoria(payload: { nombre: string; descripcion?: string }): Observable<any> {
+    return this.http.post<any>(this.CATEGORIAS_URL, payload);
+  }
+
+  updateCategoria(id: number, payload: { nombre?: string; descripcion?: string; activo?: boolean }): Observable<any> {
+    return this.http.put<any>(`${this.CATEGORIAS_URL}/${id}`, payload);
+  }
+
+  deleteCategoria(id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.CATEGORIAS_URL}/${id}`);
+  }
+
   getMarcas(pageSize = 100): Observable<PaginatedResponse<ProductoCatalogo>> {
     const params = this.toParams({ page: 1, page_size: pageSize });
     return this.http.get<PaginatedResponse<ProductoCatalogo>>(this.MARCAS_URL, { params });
+  }
+
+  getMarcasPaginadas(page = 1, pageSize = 10): Observable<PaginatedResponse<any>> {
+    const params = this.toParams({ page, page_size: pageSize });
+    return this.http.get<PaginatedResponse<any>>(this.MARCAS_URL, { params });
+  }
+
+  createMarca(payload: { nombre: string }): Observable<any> {
+    return this.http.post<any>(this.MARCAS_URL, payload);
+  }
+
+  updateMarca(id: number, payload: { nombre?: string; activo?: boolean }): Observable<any> {
+    return this.http.put<any>(`${this.MARCAS_URL}/${id}`, payload);
+  }
+
+  deleteMarca(id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.MARCAS_URL}/${id}`);
   }
 
   // Reporte PDF

@@ -15,6 +15,8 @@ import {
   PackageCheck,
   Search,
   Send,
+  Eye,
+  X
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 
@@ -135,15 +137,25 @@ interface EstadoOption {
                 </td>
 
                 <td class="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs border border-accent-primary/40 text-accent-primary hover:bg-accent-primary/10 transition-colors cursor-pointer"
-                    [disabled]="updatingId() === pedido.id"
-                    (click)="actualizarEstado(pedido)"
-                  >
-                    <lucide-icon [img]="updatingId() === pedido.id ? Loader : Send" [size]="13" [ngClass]="updatingId() === pedido.id ? 'animate-spin' : ''"></lucide-icon>
-                    {{ updatingId() === pedido.id ? 'Guardando...' : 'Aplicar' }}
-                  </button>
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center p-1.5 rounded-sm border border-border-subtle hover:bg-bg-main transition-colors text-text-secondary hover:text-accent-primary"
+                      title="Ver detalles"
+                      (click)="verDetalle(pedido.id)"
+                    >
+                      <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs border border-accent-primary/40 text-accent-primary hover:bg-accent-primary/10 transition-colors cursor-pointer"
+                      [disabled]="updatingId() === pedido.id"
+                      (click)="actualizarEstado(pedido)"
+                    >
+                      <lucide-icon [img]="updatingId() === pedido.id ? Loader : Send" [size]="13" [ngClass]="updatingId() === pedido.id ? 'animate-spin' : ''"></lucide-icon>
+                      {{ updatingId() === pedido.id ? 'Guardando...' : 'Aplicar' }}
+                    </button>
+                  </div>
                 </td>
               </tr>
 
@@ -170,6 +182,92 @@ interface EstadoOption {
           </div>
         </div>
       </section>
+
+      <!-- Modal de Detalle de Pedido -->
+      <div *ngIf="selectedPedido()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="bg-bg-surface border border-border-subtle rounded-card w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div class="flex items-center justify-between p-5 border-b border-border-subtle bg-bg-main/50">
+            <div>
+              <h2 class="text-xl font-bold tracking-tight">Pedido #{{ shortId(selectedPedido().id) }}</h2>
+              <p class="text-sm text-text-secondary">{{ toDate(selectedPedido().fecha_creacion) }}</p>
+            </div>
+            <button (click)="cerrarModal()" class="p-2 text-text-secondary hover:text-text-primary rounded-sm hover:bg-bg-main transition-colors">
+              <lucide-icon [img]="X" [size]="20"></lucide-icon>
+            </button>
+          </div>
+          
+          <div class="p-5 overflow-y-auto space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">Datos del Cliente</h3>
+                <div class="space-y-2 text-sm">
+                  <p><span class="text-text-secondary">Destinatario:</span> <span class="font-medium">{{ selectedPedido().nombre_destinatario }}</span></p>
+                  <p><span class="text-text-secondary">Estado actual:</span> 
+                    <span class="inline-flex ml-2 px-2 py-0.5 rounded-sm text-xs font-semibold" [ngClass]="estadoBadge(selectedPedido().estado)">
+                      {{ humanEstado(selectedPedido().estado) }}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              
+              <div class="space-y-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">Direccion de Envio</h3>
+                <div class="space-y-2 text-sm">
+                  <p><span class="text-text-secondary">Direccion:</span> <span class="font-medium">{{ selectedPedido().direccion_envio }}</span></p>
+                  <p><span class="text-text-secondary">Ciudad/Pais:</span> <span class="font-medium">{{ selectedPedido().ciudad_envio }}, {{ selectedPedido().pais_envio }}</span></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">Items del Pedido</h3>
+              <div class="rounded-sm border border-border-subtle overflow-hidden">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-bg-main border-b border-border-subtle text-text-secondary uppercase tracking-[0.1em] text-[10px]">
+                    <tr>
+                      <th class="px-3 py-2">Producto</th>
+                      <th class="px-3 py-2">SKU</th>
+                      <th class="px-3 py-2 text-right">Cant.</th>
+                      <th class="px-3 py-2 text-right">Precio</th>
+                      <th class="px-3 py-2 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border-subtle">
+                    <tr *ngFor="let item of selectedPedido().items" class="hover:bg-bg-main/30">
+                      <td class="px-3 py-2 font-medium">{{ item.nombre_producto }}</td>
+                      <td class="px-3 py-2 text-text-secondary">{{ item.sku_producto }}</td>
+                      <td class="px-3 py-2 text-right">{{ item.cantidad }}</td>
+                      <td class="px-3 py-2 text-right">{{ item.precio_unitario | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal | currency:'PEN':'S/ ' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-4 border-t border-border-subtle">
+              <div class="w-full max-w-xs space-y-2 text-sm">
+                <div class="flex justify-between text-text-secondary">
+                  <span>Subtotal:</span>
+                  <span>{{ selectedPedido().subtotal | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div class="flex justify-between text-text-secondary">
+                  <span>Envío:</span>
+                  <span>{{ selectedPedido().costo_envio | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div class="flex justify-between font-bold text-lg pt-2 border-t border-border-subtle">
+                  <span>Total:</span>
+                  <span class="text-accent-primary">{{ selectedPedido().total | currency:'PEN':'S/ ' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-5 border-t border-border-subtle bg-bg-main/50 flex justify-end">
+            <app-button variant="secondary" (onClick)="cerrarModal()">Cerrar</app-button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: []
@@ -183,6 +281,8 @@ export class AdminPedidosComponent implements OnInit {
   readonly PackageCheck = PackageCheck;
   readonly Send = Send;
   readonly Loader = Loader;
+  readonly Eye = Eye;
+  readonly X = X;
 
   readonly estadoOptions: EstadoOption[] = [
     { label: 'Pendiente', value: 'pendiente' },
@@ -204,6 +304,7 @@ export class AdminPedidosComponent implements OnInit {
   readonly totalPages = signal(0);
 
   readonly nextEstado = signal<Record<string, EstadoPedido>>({});
+  readonly selectedPedido = signal<any | null>(null);
 
   searchText = '';
   estadoFilter: '' | EstadoPedido = '';
@@ -222,6 +323,21 @@ export class AdminPedidosComponent implements OnInit {
     this.estadoFilter = '';
     this.page.set(1);
     this.cargarPedidos();
+  }
+
+  verDetalle(pedidoId: string): void {
+    this.adminService.getPedidoDetalle(pedidoId).subscribe({
+      next: (data) => {
+        this.selectedPedido.set(data);
+      },
+      error: () => {
+        this.toast.error('Error al cargar detalle del pedido');
+      }
+    });
+  }
+
+  cerrarModal(): void {
+    this.selectedPedido.set(null);
   }
 
   changePage(nextPage: number): void {
