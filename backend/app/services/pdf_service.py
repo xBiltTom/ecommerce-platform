@@ -1,5 +1,5 @@
 """
-Servicio de generación de reportes PDF.
+Servicio de generación de reportes PDF con diseño Dark Cyber.
 """
 
 import io
@@ -16,6 +16,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.admin_repo import AdminRepository
 
 
+def draw_background(canvas, doc):
+    """Dibuja el fondo oscuro en cada página para el tema Dark Cyber."""
+    canvas.saveState()
+    canvas.setFillColor(colors.HexColor("#0A0D14"))  # bg-main
+    canvas.rect(0, 0, A4[0], A4[1], fill=True, stroke=False)
+    
+    # Agregar un borde sutil / marco
+    canvas.setStrokeColor(colors.HexColor("#1E293B")) # border-subtle
+    canvas.setLineWidth(1)
+    canvas.rect(10*mm, 10*mm, A4[0] - 20*mm, A4[1] - 20*mm)
+    
+    canvas.restoreState()
+
+
 class PDFService:
 
     def __init__(self, db: AsyncSession):
@@ -23,69 +37,138 @@ class PDFService:
         self.admin_repo = AdminRepository(db)
 
     async def generar_reporte_ventas(self) -> bytes:
-        """Genera un PDF con el reporte de ventas."""
+        """Genera un PDF con el reporte de ventas usando diseño Dark Cyber."""
         ventas = await self.admin_repo.get_ventas_por_periodo("mes")
         top_productos = await self.admin_repo.get_productos_top(10)
         ventas_totales = await self.admin_repo.get_ventas_totales()
 
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=A4, 
+            leftMargin=15 * mm, 
+            rightMargin=15 * mm, 
+            topMargin=20 * mm, 
+            bottomMargin=20 * mm
+        )
+        
         styles = getSampleStyleSheet()
+        
+        # Redefinir estilos para Dark Mode
+        styles["Normal"].textColor = colors.HexColor("#E2E8F0")
+        styles["Normal"].fontName = "Helvetica"
+        styles["Normal"].fontSize = 10
+
+        title_style = ParagraphStyle(
+            "TitleDark", 
+            parent=styles["Title"], 
+            fontSize=22, 
+            spaceAfter=8,
+            textColor=colors.HexColor("#FFFFFF"),
+            fontName="Helvetica-Bold",
+            alignment=0, # Left align
+            textTransform="uppercase",
+        )
+        
+        meta_style = ParagraphStyle(
+            "MetaDark",
+            parent=styles["Normal"],
+            textColor=colors.HexColor("#94A3B8"),
+            fontSize=8,
+            spaceAfter=20,
+        )
+        
+        kpi_style = ParagraphStyle(
+            "KPIDark",
+            parent=styles["Normal"],
+            fontSize=14,
+            textColor=colors.HexColor("#10B981"), # Emerald accent para dinero
+            fontName="Helvetica-Bold",
+            spaceAfter=25,
+        )
+
+        h2_style = ParagraphStyle(
+            "Heading2Dark", 
+            parent=styles["Heading2"], 
+            fontSize=13, 
+            spaceAfter=12,
+            textColor=colors.HexColor("#38BDF8"), # Light blue / Cyan accent
+            fontName="Helvetica-Bold",
+            textTransform="uppercase"
+        )
+        
         elements = []
 
-        # Título
-        title_style = ParagraphStyle("Title", parent=styles["Title"], fontSize=18, spaceAfter=12)
-        elements.append(Paragraph("Reporte de Ventas", title_style))
+        # Cabecera
+        elements.append(Paragraph("<b>REPORTE DE VENTAS</b> // SISTEMA GLOBAL", title_style))
         elements.append(Paragraph(
-            f"Generado: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')}",
-            styles["Normal"],
+            f"GENERADO: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')} | MÓDULO: ADMINISTRACIÓN",
+            meta_style,
         ))
-        elements.append(Spacer(1, 10 * mm))
+        
+        # KPI Principal
+        elements.append(Paragraph(f"TOTAL INGRESOS: S/. {ventas_totales:,.2f}", kpi_style))
 
-        # Resumen
-        elements.append(Paragraph(f"<b>Ventas Totales:</b> S/. {ventas_totales:,.2f}", styles["Normal"]))
-        elements.append(Spacer(1, 5 * mm))
+        # Estilo de tablas compartido
+        table_style_base = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")), # Header bg
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#38BDF8")), # Header text
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+            ("TOPPADDING", (0, 0), (-1, 0), 8),
+            
+            # Body styles
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#121926")),
+            ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#CBD5E1")),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+            ("TOPPADDING", (0, 1), (-1, -1), 6),
+            
+            # Grid
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#1E293B")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#0F172A"), colors.HexColor("#131C2D")]),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]
 
         # Tabla de ventas por mes
         if ventas:
-            elements.append(Paragraph("<b>Ventas por Mes</b>", styles["Heading2"]))
-            data = [["Periodo", "Total (S/.)", "Pedidos"]]
+            elements.append(Paragraph("HISTÓRICO POR PERIODO", h2_style))
+            data = [["PERIODO", "TOTAL (S/.)", "PEDIDOS"]]
             for v in ventas:
                 data.append([v["periodo"][:10], f"{v['total']:,.2f}", str(v["cantidad_pedidos"])])
 
-            table = Table(data, colWidths=[60 * mm, 50 * mm, 40 * mm])
-            table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            table = Table(data, colWidths=[65 * mm, 50 * mm, 40 * mm])
+            
+            # Clonar el estilo base y añadir alineación específica
+            ts = table_style_base.copy()
+            ts.extend([
                 ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecf0f1")]),
-            ]))
+            ])
+            table.setStyle(TableStyle(ts))
+            
             elements.append(table)
-            elements.append(Spacer(1, 8 * mm))
+            elements.append(Spacer(1, 15 * mm))
 
         # Top productos
         if top_productos:
-            elements.append(Paragraph("<b>Top 10 Productos Más Vendidos</b>", styles["Heading2"]))
-            data = [["SKU", "Producto", "Cantidad", "Ingresos (S/.)"]]
+            elements.append(Paragraph("TOP 10 PRODUCTOS MÁS VENDIDOS", h2_style))
+            data = [["SKU", "PRODUCTO", "CANTIDAD", "INGRESOS (S/.)"]]
             for p in top_productos:
-                data.append([p["sku"], p["nombre"][:30], str(p["cantidad_vendida"]), f"{p['ingresos']:,.2f}"])
+                data.append([p["sku"], p["nombre"][:35], str(p["cantidad_vendida"]), f"{p['ingresos']:,.2f}"])
 
-            table = Table(data, colWidths=[30 * mm, 60 * mm, 30 * mm, 40 * mm])
-            table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            table = Table(data, colWidths=[35 * mm, 80 * mm, 30 * mm, 35 * mm])
+            
+            ts = table_style_base.copy()
+            ts.extend([
                 ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#ecf0f1")]),
-            ]))
+            ])
+            table.setStyle(TableStyle(ts))
+            
             elements.append(table)
 
-        doc.build(elements)
+        # Construir con la función de fondo en todas las páginas
+        doc.build(elements, onFirstPage=draw_background, onLaterPages=draw_background)
+        
         return buffer.getvalue()
