@@ -179,11 +179,13 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 
                     <button
                       type="button"
-                      class="p-2 rounded-sm border border-border-subtle text-text-secondary hover:text-rose-300 hover:border-rose-500/40 transition-colors cursor-pointer"
+                      class="p-2 rounded-sm border border-border-subtle text-text-secondary transition-colors cursor-pointer"
+                      [ngClass]="product.activo ? 'hover:text-rose-300 hover:border-rose-500/40' : 'hover:text-emerald-300 hover:border-emerald-500/40'"
                       [disabled]="deletingId() === product.id"
-                      (click)="desactivarProducto(product)"
+                      (click)="toggleEstado(product)"
+                      [title]="product.activo ? 'Ocultar producto' : 'Activar producto'"
                     >
-                      <lucide-icon [img]="Trash2" [size]="14"></lucide-icon>
+                      <lucide-icon [img]="deletingId() === product.id ? Loader : (product.activo ? Trash2 : Plus)" [size]="14" [ngClass]="{'animate-spin': deletingId() === product.id}"></lucide-icon>
                     </button>
                   </div>
                 </td>
@@ -549,12 +551,28 @@ export class AdminProductosComponent implements OnInit {
     });
   }
 
-  desactivarProducto(product: AdminProductoList): void {
+  toggleEstado(product: AdminProductoList): void {
     if (this.deletingId()) {
       return;
     }
-    this.productToDelete.set(product);
-    this.showDeleteConfirm.set(true);
+    
+    if (product.activo) {
+      this.productToDelete.set(product);
+      this.showDeleteConfirm.set(true);
+    } else {
+      this.deletingId.set(product.id);
+      this.adminService.updateProducto(product.id, { activo: true }).subscribe({
+        next: () => {
+          this.toast.success(`Producto "${product.nombre}" activado.`);
+          this.deletingId.set(null);
+          this.cargarProductos();
+        },
+        error: () => {
+          this.toast.error('Error al activar el producto.');
+          this.deletingId.set(null);
+        }
+      });
+    }
   }
 
   cancelarDesactivacion(): void {
