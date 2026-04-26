@@ -32,6 +32,34 @@ export interface Direccion {
 export interface PedidoRequest {
   direccion_id: number;
   metodo_pago: string;
+  comentario?: string;
+  pago_simulado?: PagoSimuladoPayload;
+}
+
+export interface PagoSimuladoPayload {
+  titular?: string;
+  numero_tarjeta?: string;
+  vencimiento?: string;
+  cvv?: string;
+  email_pagador?: string;
+  banco?: string;
+  documento?: string;
+}
+
+export interface PagoResumen {
+  id: string;
+  pedido_id: string;
+  metodo: string;
+  estado: string;
+  monto: number;
+  moneda: string;
+  referencia_externa?: string | null;
+  fecha_pago?: string | null;
+  pasarela?: string | null;
+  codigo_autorizacion?: string | null;
+  resumen?: string | null;
+  ultimos4?: string | null;
+  detalle?: Record<string, unknown> | null;
 }
 
 export interface PedidoHistorialItem {
@@ -64,6 +92,7 @@ export interface PedidoDetalle {
   total: number;
   estado: EstadoPedido;
   items: PedidoItemDetalle[];
+  pago?: PagoResumen | null;
   fecha_creacion: string;
 }
 
@@ -105,7 +134,7 @@ export class CheckoutService {
 
   // -- Pedidos --
   
-  procesarCheckout(pedido: PedidoRequest): Observable<any> {
+  procesarCheckout(pedido: PedidoRequest): Observable<PedidoDetalle> {
     return this.http.post<PedidoDetalle>(
       `${this.API_URL}/pedidos`,
       pedido,

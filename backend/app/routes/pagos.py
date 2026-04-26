@@ -23,7 +23,11 @@ async def pagar_pedido(
 ):
     service = PagoService(db)
     pago = await service.create_pago(
-        pedido_id, current_user.id, body.metodo, body.referencia_externa
+        pedido_id,
+        current_user.id,
+        body.metodo,
+        body.referencia_externa,
+        body.simulacion.model_dump(exclude_none=True) if body.simulacion else None,
     )
     return PagoResponse.model_validate(pago)
 

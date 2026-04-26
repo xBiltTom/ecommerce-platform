@@ -5,6 +5,7 @@ Schemas de pedidos.
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+from app.schemas.pago import PagoGatewayResponse, PagoSimuladoRequest
 
 
 class CheckoutRequest(BaseModel):
@@ -12,6 +13,7 @@ class CheckoutRequest(BaseModel):
     direccion_id: int
     metodo_pago: str = Field(..., pattern="^(tarjeta|transferencia|efectivo|paypal|otro)$")
     comentario: str | None = None
+    pago_simulado: PagoSimuladoRequest | None = None
 
 
 class PedidoItemResponse(BaseModel):
@@ -48,6 +50,7 @@ class PedidoResponse(BaseModel):
     total: float
     estado: str
     items: list[PedidoItemResponse] = []
+    pago: PagoGatewayResponse | None = None
     fecha_creacion: datetime
 
     model_config = {"from_attributes": True}

@@ -21,13 +21,13 @@ from app.services.pago_service import PagoService
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 
 
-def _build_response(p) -> dict:
+def _build_response(p, pago: dict | None = None) -> dict:
     return {
         "id": p.id, "nombre_destinatario": p.nombre_destinatario,
         "direccion_envio": p.direccion_envio, "ciudad_envio": p.ciudad_envio,
         "pais_envio": p.pais_envio, "subtotal": float(p.subtotal),
         "descuento": float(p.descuento), "costo_envio": float(p.costo_envio),
-        "total": float(p.total), "estado": p.estado,
+        "total": float(p.total), "estado": p.estado, "pago": pago,
         "items": [PedidoItemResponse.model_validate(i) for i in (p.items or [])],
         "fecha_creacion": p.fecha_creacion,
     }
@@ -52,13 +52,17 @@ async def checkout(
         current_user.id, body.direccion_id, body.comentario,
     )
 
-    # Auto-crear pago simulado
     pago_service = PagoService(db)
-    await pago_service.create_pago(pedido.id, current_user.id, body.metodo_pago)
+    pago = await pago_service.create_pago(
+        pedido.id,
+        current_user.id,
+        body.metodo_pago,
+        simulacion=body.pago_simulado.model_dump(exclude_none=True) if body.pago_simulado else None,
+    )
 
     # Refrescar pedido para obtener estado actualizado
     pedido = await pedido_service.get_detail(pedido.id)
-    return PedidoResponse(**_build_response(pedido))
+    return PedidoResponse(**_build_response(pedido, pago_service.build_gateway_response(pago)))
 
 
 @router.get("", response_model=PaginatedResponse[PedidoListResponse])
@@ -84,8 +88,11 @@ async def get_pedido(
     db: AsyncSession = Depends(get_db),
 ):
     service = PedidoService(db)
+    pago_service = PagoService(db)
     pedido = await service.get_detail(pedido_id, current_user.id)
-    return PedidoResponse(**_build_response(pedido))
+    pagos = await pago_service.list_by_pedido(pedido.id)
+    latest_pago = pago_service.build_gateway_response(pagos[0]) if pagos else None
+    return PedidoResponse(**_build_response(pedido, latest_pago))
 
 
 @router.post("/{pedido_id}/cancelar", response_model=MessageResponse)

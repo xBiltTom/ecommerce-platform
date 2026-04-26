@@ -1,79 +1,89 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  BadgeCheck,
+  Building2,
+  CheckCircle,
+  CreditCard,
+  LoaderCircle,
+  LucideAngularModule,
+  MapPin,
+  Package,
+  ShieldCheck,
+  WalletCards,
+} from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
-import { CheckoutService, Direccion } from '../../../core/services/checkout.service';
+import {
+  CheckoutService,
+  Direccion,
+  PagoSimuladoPayload,
+  PedidoDetalle,
+} from '../../../core/services/checkout.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { InputComponent } from '../../../shared/components/input/input.component';
-import { LucideAngularModule, CreditCard, MapPin, CheckCircle, Package } from 'lucide-angular';
+
+type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, ButtonComponent, InputComponent, LucideAngularModule],
+  imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule, ButtonComponent, InputComponent, LucideAngularModule],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      
       <div class="mb-10">
         <h1 class="text-3xl font-bold text-text-primary tracking-tight">Finalizar Compra</h1>
-        <p class="text-text-secondary">Completa tus datos para procesar el pedido.</p>
+        <p class="text-text-secondary">Confirma tu pedido y procesa el pago desde la pasarela sandbox.</p>
       </div>
 
-      <!-- Pantalla de Éxito -->
-      <div *ngIf="pedidoExitoso()" class="bg-bg-surface border border-accent-primary/50 p-12 rounded-card text-center flex flex-col items-center max-w-2xl mx-auto">
-        <div class="w-20 h-20 bg-accent-primary/20 rounded-full flex items-center justify-center text-accent-primary mb-6">
-          <lucide-icon [img]="CheckCircle" [size]="40"></lucide-icon>
+      <section *ngIf="pedidoExitoso() && pedidoConfirmado() as pedido" class="max-w-3xl mx-auto rounded-card border border-emerald-400/35 bg-[radial-gradient(circle_at_top,#224733,transparent_46%),linear-gradient(135deg,#0b1512,#101d16)] p-8 text-white shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
+        <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">
+          <lucide-icon [img]="BadgeCheck" [size]="16"></lucide-icon> Pago sandbox aprobado
         </div>
-        <h2 class="text-3xl font-bold text-text-primary mb-4">¡Pedido Confirmado!</h2>
-        <p class="text-text-secondary text-lg mb-8">
-          Tu orden ha sido procesada correctamente. Te hemos enviado un correo con los detalles.
-        </p>
-        <app-button variant="primary" routerLink="/">Volver al Catálogo</app-button>
-      </div>
+        <h2 class="mt-6 text-3xl font-black tracking-tight">Pedido confirmado y pago registrado</h2>
+        <p class="mt-3 text-sm text-emerald-50/80">La simulación terminó correctamente y el pago quedó guardado en la base de datos.</p>
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Pedido</p>
+            <p class="mt-2 text-2xl font-black">#{{ shortId(pedido.id) }}</p>
+            <p class="mt-2 text-sm text-emerald-50/75">Total {{ pedido.total | currency:'PEN':'S/ ' }}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Referencia</p>
+            <p class="mt-2 text-lg font-bold break-all">{{ pedido.pago?.referencia_externa || 'SIM-PENDING' }}</p>
+            <p class="mt-2 text-sm text-emerald-50/75">{{ pedido.pago?.pasarela || 'Protech Sandbox Gateway' }}</p>
+          </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-[11px] uppercase tracking-[0.18em] text-emerald-100/70">Método</p><p class="mt-2 font-semibold">{{ humanMetodo(pedido.pago?.metodo) }}</p></div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-[11px] uppercase tracking-[0.18em] text-emerald-100/70">Autorización</p><p class="mt-2 font-semibold">{{ pedido.pago?.codigo_autorizacion || 'Aprobado' }}</p></div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-[11px] uppercase tracking-[0.18em] text-emerald-100/70">Estado</p><p class="mt-2 font-semibold capitalize">{{ pedido.pago?.estado || pedido.estado }}</p></div>
+        </div>
+        <div class="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-emerald-50/80">{{ pedido.pago?.resumen || 'La transacción de prueba fue capturada correctamente.' }}</div>
+        <div class="mt-8 flex flex-col sm:flex-row gap-4">
+          <app-button variant="primary" routerLink="/">Volver al catálogo</app-button>
+          <app-button variant="secondary" routerLink="/mi-perfil">Ver mi pedido</app-button>
+        </div>
+      </section>
 
-      <!-- Formulario de Checkout -->
       <div *ngIf="!pedidoExitoso()" class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        
-        <!-- Izquierda: Direcciones y Pago -->
         <div class="lg:col-span-2 space-y-8">
-          
-          <!-- Sección de Dirección -->
-          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle">
-            <h3 class="text-xl font-bold text-text-primary mb-6 flex items-center gap-2">
-              <lucide-icon [img]="MapPin" [size]="20" class="text-accent-primary"></lucide-icon>
-              Dirección de Envío
-            </h3>
-            
+          <section class="bg-bg-surface p-6 rounded-card border border-border-subtle">
+            <h3 class="text-xl font-bold text-text-primary mb-6 flex items-center gap-2"><lucide-icon [img]="MapPin" [size]="20" class="text-accent-primary"></lucide-icon> Dirección de Envío</h3>
             <div *ngIf="direcciones().length > 0 && !mostrarFormularioDireccion()" class="space-y-4">
-              <div 
-                *ngFor="let dir of direcciones()" 
-                (click)="seleccionarDireccion(dir.id)"
-                class="p-4 border rounded-sm cursor-pointer transition-all duration-200"
-                [ngClass]="direccionSeleccionada() === dir.id ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle hover:border-text-secondary'"
-              >
+              <div *ngFor="let dir of direcciones()" (click)="seleccionarDireccion(dir.id)" class="p-4 border rounded-sm cursor-pointer transition-all duration-200" [ngClass]="direccionSeleccionada() === dir.id ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle hover:border-text-secondary'">
                 <div class="flex justify-between items-start">
-                  <div>
-                    <h4 class="font-bold text-text-primary">{{ dir.titulo }}</h4>
-                    <p class="text-text-secondary text-sm">{{ dir.direccion }}</p>
-                    <p class="text-text-secondary text-sm">{{ dir.ciudad }}, {{ dir.pais }}</p>
-                  </div>
-                  <div *ngIf="direccionSeleccionada() === dir.id" class="w-5 h-5 rounded-full bg-accent-primary flex items-center justify-center text-bg-main">
-                    <lucide-icon [img]="CheckCircle" [size]="14"></lucide-icon>
-                  </div>
+                  <div><h4 class="font-bold text-text-primary">{{ dir.titulo }}</h4><p class="text-text-secondary text-sm">{{ dir.direccion }}</p><p class="text-text-secondary text-sm">{{ dir.ciudad }}, {{ dir.pais }}</p></div>
+                  <div *ngIf="direccionSeleccionada() === dir.id" class="w-5 h-5 rounded-full bg-accent-primary flex items-center justify-center text-bg-main"><lucide-icon [img]="CheckCircle" [size]="14"></lucide-icon></div>
                 </div>
               </div>
-
-              <app-button variant="ghost" (onClick)="mostrarFormularioDireccion.set(true)" class="mt-4">
-                + Agregar nueva dirección
-              </app-button>
+              <app-button variant="ghost" (onClick)="mostrarFormularioDireccion.set(true)" class="mt-4">+ Agregar nueva dirección</app-button>
             </div>
-
-            <!-- Formulario Nueva Dirección -->
             <form *ngIf="direcciones().length === 0 || mostrarFormularioDireccion()" [formGroup]="direccionForm" (ngSubmit)="guardarDireccion()" class="space-y-4 mt-4">
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <app-input label="Título (Ej. Casa, Trabajo)" formControlName="titulo" id="titulo"></app-input>
+                <app-input label="Título" formControlName="titulo" id="titulo"></app-input>
                 <app-input label="Ciudad" formControlName="ciudad" id="ciudad"></app-input>
               </div>
               <app-input label="Dirección Completa" formControlName="direccion" id="direccion"></app-input>
@@ -81,129 +91,144 @@ import { LucideAngularModule, CreditCard, MapPin, CheckCircle, Package } from 'l
                 <app-input label="País" formControlName="pais" id="pais"></app-input>
                 <app-input label="Código Postal" formControlName="codigo_postal" id="codigo_postal"></app-input>
               </div>
-              
               <div class="flex gap-4 pt-2">
                 <app-button type="button" variant="secondary" *ngIf="direcciones().length > 0" (onClick)="mostrarFormularioDireccion.set(false)">Cancelar</app-button>
-                <app-button type="submit" variant="primary" [disabled]="direccionForm.invalid || loadingDireccion()">
-                  {{ loadingDireccion() ? 'Guardando...' : 'Guardar Dirección' }}
-                </app-button>
+                <app-button type="submit" variant="primary" [disabled]="direccionForm.invalid || loadingDireccion()">{{ loadingDireccion() ? 'Guardando...' : 'Guardar Dirección' }}</app-button>
               </div>
             </form>
-          </div>
+          </section>
 
-          <!-- Sección de Pago -->
-          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle">
-            <h3 class="text-xl font-bold text-text-primary mb-6 flex items-center gap-2">
-              <lucide-icon [img]="CreditCard" [size]="20" class="text-accent-primary"></lucide-icon>
-              Método de Pago
-            </h3>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div 
-                (click)="metodoPago.set('tarjeta')"
-                class="p-4 border rounded-sm cursor-pointer transition-all duration-200 flex items-center gap-3"
-                [ngClass]="metodoPago() === 'tarjeta' ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle hover:border-text-secondary'"
-              >
-                <lucide-icon [img]="CreditCard" [size]="24" [class]="metodoPago() === 'tarjeta' ? 'text-accent-primary' : 'text-text-secondary'"></lucide-icon>
-                <span class="font-medium" [class]="metodoPago() === 'tarjeta' ? 'text-text-primary' : 'text-text-secondary'">Tarjeta de Crédito</span>
-              </div>
-              
-              <div 
-                (click)="metodoPago.set('paypal')"
-                class="p-4 border rounded-sm cursor-pointer transition-all duration-200 flex items-center gap-3"
-                [ngClass]="metodoPago() === 'paypal' ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle hover:border-text-secondary'"
-              >
-                 <lucide-icon [img]="Package" [size]="24" [class]="metodoPago() === 'paypal' ? 'text-accent-primary' : 'text-text-secondary'"></lucide-icon>
-                 <span class="font-medium" [class]="metodoPago() === 'paypal' ? 'text-text-primary' : 'text-text-secondary'">PayPal</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Derecha: Resumen del Pedido -->
-        <div class="lg:col-span-1">
-          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle sticky top-24">
-            <h3 class="text-xl font-bold text-text-primary mb-6">Resumen de la Orden</h3>
-            
-            <!-- Items -->
-            <div class="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
-              <div *ngFor="let item of cartService.items()" class="flex gap-4">
-                <div class="w-16 h-16 bg-white p-1 rounded-sm border border-border-subtle flex-shrink-0">
-                  <img [src]="item.producto.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" class="w-full h-full object-contain">
+          <section class="relative overflow-hidden rounded-card border border-border-subtle bg-bg-surface p-6">
+            <div class="absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_top_right,rgba(223,227,29,0.08),transparent_35%),linear-gradient(160deg,transparent,rgba(255,255,255,0.02))]"></div>
+            <div class="relative">
+              <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+                <div>
+                  <h3 class="text-xl font-bold text-text-primary flex items-center gap-2"><lucide-icon [img]="WalletCards" [size]="20" class="text-accent-primary"></lucide-icon> Pasarela Sandbox</h3>
+                  <p class="text-text-secondary text-sm mt-2">No se moverá dinero real, pero el pago sí se registrará en la base de datos.</p>
                 </div>
-                <div class="flex-grow">
-                  <h4 class="text-sm text-text-primary line-clamp-2">{{ item.producto.nombre }}</h4>
-                  <div class="flex justify-between items-center mt-1">
-                    <span class="text-xs text-text-secondary">Cant: {{ item.cantidad }}</span>
-                    <span class="text-sm font-medium">{{ (item.producto.precio_oferta || item.producto.precio) | currency:'PEN':'S/ ' }}</span>
+                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300"><lucide-icon [img]="ShieldCheck" [size]="14"></lucide-icon> Entorno de prueba</div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <button type="button" (click)="selectMetodoPago('tarjeta')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'tarjeta' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="CreditCard" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">Tarjeta</p><p class="text-xs text-text-secondary mt-1">Captura instantánea</p></button>
+                <button type="button" (click)="selectMetodoPago('paypal')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'paypal' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="Package" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">PayPal</p><p class="text-xs text-text-secondary mt-1">Aprobación inmediata</p></button>
+                <button type="button" (click)="selectMetodoPago('transferencia')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'transferencia' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="Building2" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">Transferencia</p><p class="text-xs text-text-secondary mt-1">Validación bancaria</p></button>
+              </div>
+
+              <div class="rounded-3xl border border-border-subtle bg-bg-main/65 p-5 space-y-5">
+                <div class="flex flex-wrap items-center gap-3 text-xs">
+                  <span class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-surface px-3 py-1 uppercase tracking-[0.2em] text-text-secondary"><span class="h-2 w-2 rounded-full" [ngClass]="paymentStageDot()"></span>{{ paymentStageLabel() }}</span>
+                  <span class="text-text-secondary">Pasarela: Protech Sandbox Gateway</span>
+                </div>
+
+                <div *ngIf="metodoPago() === 'tarjeta'" class="space-y-4">
+                  <div class="rounded-3xl border border-white/5 bg-[linear-gradient(135deg,#111827,#1f2937_60%,#0f172a)] p-5 text-white shadow-xl">
+                    <p class="text-[11px] uppercase tracking-[0.24em] text-white/55">Tarjeta de prueba</p>
+                    <p class="mt-6 text-2xl font-black tracking-[0.24em]">{{ cardNumber() }}</p>
+                    <div class="mt-6 flex items-end justify-between gap-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Titular</p><p class="mt-1 font-semibold">{{ cardHolder() || 'TEST USER' }}</p></div><div class="text-right"><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Vence</p><p class="mt-1 font-semibold">{{ cardExpiry() || '12/30' }}</p></div></div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label class="block"><span class="text-sm font-medium text-text-primary">Titular</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardHolder()" (ngModelChange)="cardHolder.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="TEST USER"></label>
+                    <label class="block"><span class="text-sm font-medium text-text-primary">Número</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardNumber()" (ngModelChange)="cardNumber.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="4242 4242 4242 4242"></label>
+                  </div>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <label class="block"><span class="text-sm font-medium text-text-primary">Vencimiento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardExpiry()" (ngModelChange)="cardExpiry.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="12/30"></label>
+                    <label class="block"><span class="text-sm font-medium text-text-primary">CVV</span><input type="password" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardCvv()" (ngModelChange)="cardCvv.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="123"></label>
+                    <label class="block col-span-2 sm:col-span-1"><span class="text-sm font-medium text-text-primary">Documento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="payerDocument()" (ngModelChange)="payerDocument.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="44556677"></label>
                   </div>
                 </div>
+
+                <div *ngIf="metodoPago() === 'paypal'" class="space-y-4">
+                  <div class="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5"><p class="text-xs uppercase tracking-[0.22em] text-sky-300">Sandbox Wallet</p><p class="mt-2 text-lg font-bold text-text-primary">Conexión segura con cuenta de prueba</p><p class="mt-2 text-sm text-text-secondary">La aprobación es inmediata y genera una referencia estilo PayPal sandbox.</p></div>
+                  <label class="block"><span class="text-sm font-medium text-text-primary">Correo del pagador</span><input type="email" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="paypalEmail()" (ngModelChange)="paypalEmail.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="cliente@sandbox.test"></label>
+                </div>
+
+                <div *ngIf="metodoPago() === 'transferencia'" class="space-y-4">
+                  <div class="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5"><p class="text-xs uppercase tracking-[0.22em] text-amber-300">Transfer Sandbox</p><p class="mt-2 text-lg font-bold text-text-primary">Validación bancaria de laboratorio</p><p class="mt-2 text-sm text-text-secondary">Registra banco y documento para una aprobación automática de prueba.</p></div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label class="block"><span class="text-sm font-medium text-text-primary">Banco</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="bankName()" (ngModelChange)="bankName.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="Banco Sandbox"></label>
+                    <label class="block"><span class="text-sm font-medium text-text-primary">Documento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="payerDocument()" (ngModelChange)="payerDocument.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="44556677"></label>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-text-secondary">
+                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">1. Tokenización local</div>
+                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">2. Autorización sandbox</div>
+                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">3. Registro en BD</div>
+                </div>
               </div>
             </div>
-
-            <div class="border-t border-border-subtle pt-4 space-y-3 mb-6">
-              <div class="flex justify-between text-text-secondary">
-                <span>Subtotal</span>
-                <span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span>
-              </div>
-              <div class="flex justify-between text-text-secondary">
-                <span>Envío</span>
-                <span>Gratis</span>
-              </div>
-              <div class="flex justify-between text-lg font-bold text-text-primary pt-3 border-t border-border-subtle">
-                <span>Total</span>
-                <span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span>
-              </div>
-            </div>
-
-            <!-- Error -->
-            <div *ngIf="errorMessage()" class="mb-4 text-red-400 text-sm bg-red-500/10 p-3 rounded-sm border border-red-500/30">
-              {{ errorMessage() }}
-            </div>
-
-            <app-button 
-              variant="primary" 
-              [fullWidth]="true" 
-              size="lg"
-              (onClick)="procesarOrden()"
-              [disabled]="loading() || !direccionSeleccionada() || !metodoPago() || cartService.items().length === 0"
-            >
-              {{ loading() ? 'Procesando...' : 'Confirmar Pedido' }}
-            </app-button>
-          </div>
+          </section>
         </div>
 
+        <aside class="lg:col-span-1">
+          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle sticky top-24">
+            <h3 class="text-xl font-bold text-text-primary mb-6">Resumen de la Orden</h3>
+            <div class="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+              <div *ngFor="let item of cartService.items()" class="flex gap-4">
+                <div class="w-16 h-16 bg-white p-1 rounded-sm border border-border-subtle flex-shrink-0"><img [src]="item.producto.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" class="w-full h-full object-contain"></div>
+                <div class="flex-grow"><h4 class="text-sm text-text-primary line-clamp-2">{{ item.producto.nombre }}</h4><div class="flex justify-between items-center mt-1"><span class="text-xs text-text-secondary">Cant: {{ item.cantidad }}</span><span class="text-sm font-medium">{{ (item.producto.precio_oferta || item.producto.precio) | currency:'PEN':'S/ ' }}</span></div></div>
+              </div>
+            </div>
+            <div class="border-t border-border-subtle pt-4 space-y-3 mb-6">
+              <div class="flex justify-between text-text-secondary"><span>Subtotal</span><span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span></div>
+              <div class="flex justify-between text-text-secondary"><span>Envío</span><span>Gratis</span></div>
+              <div class="flex justify-between text-lg font-bold text-text-primary pt-3 border-t border-border-subtle"><span>Total</span><span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span></div>
+            </div>
+            <div class="mb-4 rounded-2xl border border-border-subtle bg-bg-main/70 p-4">
+              <p class="text-xs uppercase tracking-[0.2em] text-text-secondary">Estado del procesamiento</p>
+              <div class="mt-3 flex items-center gap-3">
+                <lucide-icon [img]="loading() ? LoaderCircle : CheckCircle" [size]="18" [class]="loading() ? 'animate-spin text-accent-primary' : 'text-text-secondary'"></lucide-icon>
+                <p class="text-sm text-text-primary">{{ paymentStageMessage() }}</p>
+              </div>
+            </div>
+            <div *ngIf="errorMessage()" class="mb-4 text-red-400 text-sm bg-red-500/10 p-3 rounded-sm border border-red-500/30">{{ errorMessage() }}</div>
+            <app-button variant="primary" [fullWidth]="true" size="lg" (onClick)="procesarOrden()" [disabled]="loading() || !direccionSeleccionada() || !metodoPago() || cartService.items().length === 0">
+              {{ loading() ? 'Procesando pago sandbox...' : 'Confirmar y pagar' }}
+            </app-button>
+          </div>
+        </aside>
       </div>
     </div>
   `,
   styles: []
 })
-export class CheckoutComponent implements OnInit {
+export class CheckoutComponent implements OnInit, OnDestroy {
   cartService = inject(CartService);
   private checkoutService = inject(CheckoutService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private toast = inject(ToastService);
 
-  // Icons
   readonly CreditCard = CreditCard;
   readonly MapPin = MapPin;
   readonly CheckCircle = CheckCircle;
   readonly Package = Package;
+  readonly WalletCards = WalletCards;
+  readonly ShieldCheck = ShieldCheck;
+  readonly Building2 = Building2;
+  readonly LoaderCircle = LoaderCircle;
+  readonly BadgeCheck = BadgeCheck;
 
-  // State
   direcciones = signal<Direccion[]>([]);
   direccionSeleccionada = signal<number | null>(null);
-  mostrarFormularioDireccion = signal<boolean>(false);
-  metodoPago = signal<string>('tarjeta');
-  
+  mostrarFormularioDireccion = signal(false);
+  metodoPago = signal('tarjeta');
   loading = signal(false);
   loadingDireccion = signal(false);
   errorMessage = signal('');
   pedidoExitoso = signal(false);
+  pedidoConfirmado = signal<PedidoDetalle | null>(null);
+  paymentStage = signal<PaymentStage>('idle');
+  cardHolder = signal('TEST USER');
+  cardNumber = signal('4242 4242 4242 4242');
+  cardExpiry = signal('12/30');
+  cardCvv = signal('123');
+  paypalEmail = signal('cliente@sandbox.test');
+  bankName = signal('Banco Sandbox');
+  payerDocument = signal('44556677');
+  private paymentTimers: Array<ReturnType<typeof setTimeout>> = [];
 
-  // Form
   direccionForm = this.fb.group({
     titulo: ['', Validators.required],
     direccion: ['', Validators.required],
@@ -221,19 +246,20 @@ export class CheckoutComponent implements OnInit {
     this.cargarDirecciones();
   }
 
+  ngOnDestroy() {
+    this.clearPaymentTimers();
+  }
+
   cargarDirecciones() {
     this.checkoutService.getDirecciones().subscribe({
       next: (dirs) => {
         this.direcciones.set(dirs);
         if (dirs.length > 0) {
-          const principal = dirs.find(d => d.es_principal);
+          const principal = dirs.find((d) => d.es_principal);
           this.direccionSeleccionada.set(principal ? principal.id : dirs[0].id);
         }
       },
-      error: () => {
-        // En caso de error, podríamos simular o ignorar, ya que hay fallback
-        console.warn('No se pudieron cargar direcciones.');
-      }
+      error: () => console.warn('No se pudieron cargar direcciones.')
     });
   }
 
@@ -241,13 +267,18 @@ export class CheckoutComponent implements OnInit {
     this.direccionSeleccionada.set(id);
   }
 
+  selectMetodoPago(metodo: string) {
+    this.metodoPago.set(metodo);
+    this.errorMessage.set('');
+    this.paymentStage.set('idle');
+  }
+
   guardarDireccion() {
     if (this.direccionForm.invalid) return;
-
     this.loadingDireccion.set(true);
     this.checkoutService.crearDireccion(this.direccionForm.value as any).subscribe({
       next: (dir) => {
-        this.direcciones.update(d => [...d, dir]);
+        this.direcciones.update((d) => [...d, dir]);
         this.direccionSeleccionada.set(dir.id);
         this.mostrarFormularioDireccion.set(false);
         this.loadingDireccion.set(false);
@@ -255,9 +286,8 @@ export class CheckoutComponent implements OnInit {
         this.toast.success('La nueva dirección fue guardada.', 'Dirección Agregada');
       },
       error: () => {
-        // Fallback for UI visualization if backend is failing
         const mockDir = { ...this.direccionForm.value, id: Date.now() } as Direccion;
-        this.direcciones.update(d => [...d, mockDir]);
+        this.direcciones.update((d) => [...d, mockDir]);
         this.direccionSeleccionada.set(mockDir.id);
         this.mostrarFormularioDireccion.set(false);
         this.loadingDireccion.set(false);
@@ -268,43 +298,154 @@ export class CheckoutComponent implements OnInit {
 
   async procesarOrden() {
     const dirId = this.direccionSeleccionada();
-    const pago = this.metodoPago();
-
-    if (!dirId || !pago) {
+    const metodo = this.metodoPago();
+    if (!dirId || !metodo) {
       this.errorMessage.set('Selecciona una dirección y un método de pago.');
+      return;
+    }
+
+    const pagoSimulado = this.buildPaymentPayload();
+    if (!pagoSimulado) {
       return;
     }
 
     this.loading.set(true);
     this.errorMessage.set('');
+    this.startPaymentStageAnimation();
 
     try {
       await this.cartService.flushPendingSync();
     } catch {
       this.loading.set(false);
+      this.paymentStage.set('error');
       this.errorMessage.set('No se pudo sincronizar el carrito. Intenta nuevamente en unos segundos.');
       return;
     }
 
-    const payload = {
+    this.checkoutService.procesarCheckout({
       direccion_id: dirId,
-      metodo_pago: pago
-    };
-
-    this.checkoutService.procesarCheckout(payload).subscribe({
-      next: () => {
+      metodo_pago: metodo,
+      pago_simulado: pagoSimulado,
+    }).subscribe({
+      next: (pedido) => {
+        this.clearPaymentTimers();
+        this.paymentStage.set('success');
+        this.pedidoConfirmado.set(pedido);
         this.cartService.clearCart();
         this.pedidoExitoso.set(true);
         this.loading.set(false);
-        this.toast.success('El pedido ha sido procesado correctamente.', '¡Pedido Confirmado!');
+        this.toast.success('El pago de prueba fue registrado correctamente.', 'Pedido Confirmado');
       },
-      error: () => {
-        // Fallback simulación exitosa
-        this.cartService.clearCart();
-        this.pedidoExitoso.set(true);
+      error: (err) => {
+        this.clearPaymentTimers();
+        this.paymentStage.set('error');
         this.loading.set(false);
-        this.toast.success('El pedido ha sido procesado correctamente.', '¡Pedido Confirmado!');
+        this.errorMessage.set(err?.error?.detail || 'No se pudo registrar el pago simulado. Intenta de nuevo.');
       }
     });
+  }
+
+  paymentStageLabel(): string {
+    return {
+      idle: 'Listo',
+      authorizing: 'Autorizando',
+      capturing: 'Capturando',
+      success: 'Aprobado',
+      error: 'Error',
+    }[this.paymentStage()];
+  }
+
+  paymentStageDot(): string {
+    return {
+      idle: 'bg-text-secondary',
+      authorizing: 'bg-amber-300',
+      capturing: 'bg-sky-300',
+      success: 'bg-emerald-300',
+      error: 'bg-red-400',
+    }[this.paymentStage()];
+  }
+
+  paymentStageMessage(): string {
+    return {
+      idle: 'Completa la pasarela y confirma el pedido.',
+      authorizing: 'Validando al pagador y tokenizando datos de prueba.',
+      capturing: 'Registrando la transacción en la base de datos.',
+      success: 'Pago sandbox confirmado.',
+      error: 'La simulación encontró un problema.',
+    }[this.paymentStage()];
+  }
+
+  humanMetodo(metodo?: string | null): string {
+    switch (metodo) {
+      case 'tarjeta':
+        return 'Tarjeta';
+      case 'paypal':
+        return 'PayPal';
+      case 'transferencia':
+        return 'Transferencia';
+      case 'efectivo':
+        return 'Efectivo';
+      default:
+        return 'Otro';
+    }
+  }
+
+  shortId(id: string): string {
+    return id.slice(0, 8).toUpperCase();
+  }
+
+  private startPaymentStageAnimation(): void {
+    this.clearPaymentTimers();
+    this.paymentStage.set('authorizing');
+    this.paymentTimers.push(setTimeout(() => {
+      if (this.loading()) this.paymentStage.set('capturing');
+    }, 900));
+  }
+
+  private clearPaymentTimers(): void {
+    this.paymentTimers.forEach((timer) => clearTimeout(timer));
+    this.paymentTimers = [];
+  }
+
+  private buildPaymentPayload(): PagoSimuladoPayload | null {
+    const metodo = this.metodoPago();
+    if (metodo === 'tarjeta') {
+      const digits = this.cardNumber().replace(/\s+/g, '');
+      if (!this.cardHolder().trim() || digits.length < 12 || !/^\d{2}\/\d{2}$/.test(this.cardExpiry()) || !/^\d{3,4}$/.test(this.cardCvv())) {
+        this.paymentStage.set('error');
+        this.errorMessage.set('Completa correctamente los datos de la tarjeta sandbox.');
+        return null;
+      }
+      return {
+        titular: this.cardHolder().trim(),
+        numero_tarjeta: this.cardNumber().trim(),
+        vencimiento: this.cardExpiry().trim(),
+        cvv: this.cardCvv().trim(),
+        documento: this.payerDocument().trim() || undefined,
+      };
+    }
+
+    if (metodo === 'paypal') {
+      if (!this.paypalEmail().trim() || !this.paypalEmail().includes('@')) {
+        this.paymentStage.set('error');
+        this.errorMessage.set('Ingresa un correo válido para la billetera sandbox.');
+        return null;
+      }
+      return { email_pagador: this.paypalEmail().trim() };
+    }
+
+    if (metodo === 'transferencia') {
+      if (!this.bankName().trim() || !this.payerDocument().trim()) {
+        this.paymentStage.set('error');
+        this.errorMessage.set('Ingresa banco y documento para la transferencia sandbox.');
+        return null;
+      }
+      return {
+        banco: this.bankName().trim(),
+        documento: this.payerDocument().trim(),
+      };
+    }
+
+    return {};
   }
 }
