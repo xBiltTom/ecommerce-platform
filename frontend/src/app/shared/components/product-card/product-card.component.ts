@@ -1,6 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ButtonComponent } from '../button/button.component';
 import { BadgeComponent } from '../badge/badge.component';
 import { LucideAngularModule, ShoppingCart } from 'lucide-angular';
 
@@ -18,7 +17,7 @@ export interface ProductData {
 @Component({
   selector: 'app-product-card',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, BadgeComponent, LucideAngularModule, RouterModule],
+  imports: [CommonModule, BadgeComponent, LucideAngularModule, RouterModule],
   template: `
     <div 
       class="group relative flex flex-col bg-bg-surface border border-border-subtle rounded-card overflow-hidden transition-all duration-300 hover:border-accent-primary hover:shadow-[0_0_15px_rgba(223,227,29,0.15)] h-full"

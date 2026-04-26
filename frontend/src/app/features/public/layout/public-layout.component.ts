@@ -1,8 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterModule } from '@angular/router';
-import { LucideAngularModule, Search, ShoppingBag, User, Menu } from 'lucide-angular';
+import { LucideAngularModule, Search, ShoppingBag, User, Menu, LogOut } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/cart-sidebar.component';
 
 @Component({
@@ -38,13 +39,34 @@ import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/ca
               <lucide-icon [img]="Search" [size]="20"></lucide-icon>
             </button>
             
+            <!-- Login / Profile -->
             <button 
+              *ngIf="!authService.isAuthenticated()"
               class="text-text-secondary hover:text-text-primary transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" 
-              aria-label="Perfil"
+              aria-label="Iniciar sesión"
               routerLink="/auth/login"
             >
               <lucide-icon [img]="User" [size]="20"></lucide-icon>
             </button>
+
+            <div *ngIf="authService.isAuthenticated()" class="flex items-center space-x-4">
+              <button 
+                *ngIf="authService.isAdmin()"
+                class="text-accent-primary hover:text-accent-hover transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" 
+                aria-label="Panel de Administración"
+                routerLink="/admin"
+              >
+                <lucide-icon [img]="User" [size]="20"></lucide-icon>
+              </button>
+
+              <button 
+                (click)="authService.logout()"
+                class="text-text-secondary hover:text-red-400 transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none cursor-pointer" 
+                aria-label="Cerrar sesión"
+              >
+                <lucide-icon [img]="LogOut" [size]="20"></lucide-icon>
+              </button>
+            </div>
 
             <!-- Cart Toggle -->
             <button 
@@ -139,10 +161,12 @@ import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/ca
 })
 export class PublicLayoutComponent {
   cartService = inject(CartService);
+  authService = inject(AuthService);
   isCartOpen = signal(false);
 
   readonly Search = Search;
   readonly ShoppingBag = ShoppingBag;
   readonly User = User;
   readonly Menu = Menu;
+  readonly LogOut = LogOut;
 }

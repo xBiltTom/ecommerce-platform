@@ -65,9 +65,25 @@ export const guestGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.getAccessToken()) {
+  if (authService.isAuthenticated()) {
     router.navigate(['/']);
     return false;
+  }
+
+  if (authService.getAccessToken()) {
+    return authService.fetchCurrentUser().pipe(
+      take(1),
+      map(() => {
+        router.navigate(['/']);
+        return false;
+      }),
+      catchError(() => {
+        // Token inválido o error de red, permitimos acceder al login
+        // Limpiamos los tokens por si acaso para no dejar basura
+        authService.logout();
+        return of(true);
+      })
+    );
   }
   
   return true;
