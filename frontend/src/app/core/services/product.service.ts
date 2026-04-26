@@ -4,6 +4,28 @@ import { Observable, of, catchError } from 'rxjs';
 import { ProductData } from '../../shared/components/product-card/product-card.component';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
 
+export interface ProductoDetallePublico {
+  id: number;
+  sku: string;
+  nombre: string;
+  slug: string;
+  descripcion?: string | null;
+  precio: number;
+  precio_oferta?: number | null;
+  stock_fisico: number;
+  stock_reservado: number;
+  stock_disponible: number;
+  stock_minimo: number;
+  categoria_id?: number | null;
+  marca_id?: number | null;
+  categoria_nombre?: string | null;
+  marca_nombre?: string | null;
+  imagen_url?: string | null;
+  activo: boolean;
+  especificaciones: { clave: string; valor: string }[];
+  fecha_creacion: string;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -72,6 +94,13 @@ export class ProductService {
       { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
     ).pipe(
       catchError(() => of({ items: [{id: 1, nombre: 'Audio', slug: 'audio'}, {id: 2, nombre: 'Wearables', slug: 'wearables'}], total: 2, page: 1, page_size: 10, total_pages: 1 }))
+    );
+  }
+
+  getProductoBySlug(slug: string): Observable<ProductoDetallePublico> {
+    return this.http.get<ProductoDetallePublico>(
+      `${this.baseUrl}/productos/${slug}`,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
     );
   }
 

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AdminProductoList,
   AdminService,
+  EspecificacionProducto,
   PaginatedResponse,
   ProductoCatalogo,
 } from '../../../core/services/admin.service';
@@ -285,6 +286,46 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             <input formControlName="imagen_url" type="url" placeholder="https://..." class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
           </label>
 
+          <!-- Especificaciones Técnicas -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-text-secondary">Especificaciones Técnicas</span>
+              <button
+                type="button"
+                (click)="addEspecificacion()"
+                class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-sm border border-accent-primary/40 text-accent-primary hover:bg-accent-primary/10 transition-colors cursor-pointer"
+              >
+                <lucide-icon [img]="Plus" [size]="11"></lucide-icon> Añadir
+              </button>
+            </div>
+            <div *ngIf="especificaciones().length === 0" class="text-xs text-text-secondary/60 italic py-1">
+              Sin especificaciones. Pulsa "Añadir" para agregar características técnicas.
+            </div>
+            <div *ngFor="let esp of especificaciones(); let i = index" class="flex items-center gap-2">
+              <input
+                type="text"
+                [value]="esp.clave"
+                (input)="updateEspecificacion(i, 'clave', $event)"
+                placeholder="Ej: Color"
+                class="w-2/5 px-2.5 py-2 bg-bg-main border border-border-subtle rounded-sm text-sm focus:outline-none focus:border-accent-primary"
+              />
+              <input
+                type="text"
+                [value]="esp.valor"
+                (input)="updateEspecificacion(i, 'valor', $event)"
+                placeholder="Ej: Negro"
+                class="flex-1 px-2.5 py-2 bg-bg-main border border-border-subtle rounded-sm text-sm focus:outline-none focus:border-accent-primary"
+              />
+              <button
+                type="button"
+                (click)="removeEspecificacion(i)"
+                class="p-2 rounded-sm border border-border-subtle text-text-secondary hover:text-rose-400 hover:border-rose-500/40 transition-colors cursor-pointer shrink-0"
+              >
+                <lucide-icon [img]="X" [size]="12"></lucide-icon>
+              </button>
+            </div>
+          </div>
+
           <label class="inline-flex items-center gap-2 text-sm cursor-pointer select-none">
             <input type="checkbox" formControlName="activo" class="accent-accent-primary" />
             <span class="text-text-secondary">Producto activo</span>
@@ -380,6 +421,9 @@ export class AdminProductosComponent implements OnInit {
   readonly marcaFilter = signal<string>('');
   readonly estadoFilter = signal<string>('');
 
+  // Lista dinámica de especificaciones, fuera del FormGroup
+  readonly especificaciones = signal<EspecificacionProducto[]>([]);
+
   readonly productForm = this.fb.group({
     sku: ['', [Validators.required, Validators.minLength(1)]],
     nombre: ['', [Validators.required, Validators.minLength(2)]],
@@ -445,6 +489,7 @@ export class AdminProductosComponent implements OnInit {
     this.editMode.set(false);
     this.editingProductId.set(null);
     this.formError.set('');
+    this.especificaciones.set([]);
     this.productForm.reset({
       sku: '',
       nombre: '',
@@ -460,10 +505,28 @@ export class AdminProductosComponent implements OnInit {
     this.modalOpen.set(true);
   }
 
+  addEspecificacion(): void {
+    this.especificaciones.update(list => [...list, { clave: '', valor: '' }]);
+  }
+
+  removeEspecificacion(index: number): void {
+    this.especificaciones.update(list => list.filter((_, i) => i !== index));
+  }
+
+  updateEspecificacion(index: number, field: 'clave' | 'valor', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.especificaciones.update(list => {
+      const updated = [...list];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
   abrirModalEditar(product: AdminProductoList): void {
     this.editMode.set(true);
     this.editingProductId.set(product.id);
     this.formError.set('');
+    this.especificaciones.set([]);
 
     this.adminService.getProductoDetalle(product.slug).subscribe({
       next: (detail) => {
@@ -479,6 +542,7 @@ export class AdminProductosComponent implements OnInit {
           imagen_url: detail.imagen_url ?? '',
           activo: detail.activo,
         });
+        this.especificaciones.set(detail.especificaciones ? [...detail.especificaciones] : []);
         this.modalOpen.set(true);
       },
       error: () => {
@@ -491,9 +555,9 @@ export class AdminProductosComponent implements OnInit {
     if (this.saving()) {
       return;
     }
-
     this.modalOpen.set(false);
     this.formError.set('');
+    this.especificaciones.set([]);
   }
 
   guardarProducto(): void {
@@ -687,6 +751,10 @@ export class AdminProductosComponent implements OnInit {
         ? null
         : Number(value.precio_oferta);
 
+    const especificaciones = this.especificaciones()
+      .filter(e => e.clave.trim() !== '' && e.valor.trim() !== '')
+      .map(e => ({ clave: e.clave.trim(), valor: e.valor.trim() }));
+
     return {
       sku: String(value.sku ?? '').trim(),
       nombre: String(value.nombre ?? '').trim(),
@@ -698,6 +766,7 @@ export class AdminProductosComponent implements OnInit {
       marca_id: value.marca_id ?? null,
       imagen_url: value.imagen_url?.trim() || null,
       activo: Boolean(value.activo),
+      especificaciones,
     };
   }
 }

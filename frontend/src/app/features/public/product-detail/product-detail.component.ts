@@ -1,27 +1,13 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { LucideAngularModule, ArrowLeft, Truck, ShieldCheck, ChevronRight, Plus, Minus } from 'lucide-angular';
+import { Subject, takeUntil } from 'rxjs';
+import { LucideAngularModule, ArrowLeft, Truck, ShieldCheck, ChevronRight, Plus, Minus, AlertCircle } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { BadgeComponent } from '../../../shared/components/badge/badge.component';
-import { ProductService } from '../../../core/services/product.service';
+import { ProductService, ProductoDetallePublico } from '../../../core/services/product.service';
 import { CartService } from '../../../core/services/cart.service';
-
-export interface ProductoDetalle {
-  id: number;
-  sku: string;
-  nombre: string;
-  slug: string;
-  descripcion: string;
-  precio: number;
-  precio_oferta?: number;
-  stock_disponible: number;
-  categoria_nombre?: string;
-  marca_nombre?: string;
-  imagen_url?: string;
-  activo: boolean;
-  especificaciones: { clave: string, valor: string }[];
-}
+import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -47,28 +33,48 @@ export interface ProductoDetalle {
           <div class="h-8 bg-bg-surface animate-pulse w-3/4 rounded"></div>
           <div class="h-6 bg-bg-surface animate-pulse w-1/4 rounded"></div>
           <div class="h-32 bg-bg-surface animate-pulse w-full rounded"></div>
+          <div class="h-12 bg-bg-surface animate-pulse w-1/2 rounded"></div>
         </div>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="!loading() && error()" class="flex flex-col items-center justify-center py-24 text-center">
+        <div class="w-16 h-16 mb-5 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <lucide-icon [img]="AlertCircle" [size]="28"></lucide-icon>
+        </div>
+        <h2 class="text-2xl font-bold text-text-primary mb-2">Producto no encontrado</h2>
+        <p class="text-text-secondary mb-6">{{ error() }}</p>
+        <a routerLink="/">
+          <app-button variant="secondary">Volver al catálogo</app-button>
+        </a>
       </div>
 
       <!-- Main Content -->
       <div *ngIf="!loading() && product()" class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
         
-        <!-- Image Gallery (Simplified for now) -->
+        <!-- Image Gallery -->
         <div class="flex flex-col gap-4">
           <div 
-            class="w-full aspect-square bg-bg-surface border border-border-subtle rounded-card overflow-hidden flex items-center justify-center p-8 transition-transform duration-300"
+            class="w-full aspect-square border border-border-subtle rounded-card overflow-hidden flex items-center justify-center p-8 transition-transform duration-300"
             [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'"
           >
-            <img [src]="product()?.imagen_url || 'https://placehold.co/800x800/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain hover:scale-110 transition-transform duration-500 cursor-zoom-in">
+            <img 
+              [src]="product()?.imagen_url || 'https://placehold.co/800x800/1E293B/38BDF8?text=SIN+IMAGEN'" 
+              [alt]="product()?.nombre" 
+              class="w-full h-full object-contain hover:scale-110 transition-transform duration-500 cursor-zoom-in"
+              (error)="onImageError($event)"
+            >
           </div>
-          <!-- Thumbnails placeholder if there were multiple images -->
+          <!-- Thumbnails -->
           <div class="grid grid-cols-4 gap-4">
-            <div class="aspect-square bg-bg-surface border-2 border-accent-primary rounded-sm opacity-100 p-2 cursor-pointer transition-transform duration-200 active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
-              <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain">
+            <div 
+              class="aspect-square border-2 border-accent-primary rounded-sm opacity-100 p-2 cursor-pointer transition-transform duration-200 active:scale-95"
+              [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'"
+            >
+              <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain" (error)="onImageError($event)">
             </div>
-            <!-- Mock other angles -->
             <div *ngFor="let i of [1,2,3]" class="aspect-square bg-bg-surface border border-border-subtle rounded-sm opacity-50 hover:opacity-100 transition-all duration-200 hover:border-accent-primary/50 p-2 cursor-pointer active:scale-95" [ngClass]="requiresWhiteBg() ? 'bg-white' : 'bg-bg-surface'">
-               <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale hover:grayscale-0 transition-all duration-300">
+               <img [src]="product()?.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=IMG'" [alt]="product()?.nombre" class="w-full h-full object-contain grayscale hover:grayscale-0 transition-all duration-300" (error)="onImageError($event)">
             </div>
           </div>
         </div>
@@ -79,7 +85,7 @@ export interface ProductoDetalle {
           <div class="flex items-center gap-3 mb-4">
             <span class="text-sm font-bold tracking-wider uppercase text-text-secondary cursor-default">{{ product()?.marca_nombre }}</span>
             <app-badge *ngIf="product()?.precio_oferta" variant="default">Oferta</app-badge>
-            <app-badge *ngIf="product()?.stock_disponible! < 5" variant="outline" class="text-red-400 border-red-500/30">Poco Stock</app-badge>
+            <app-badge *ngIf="(product()?.stock_disponible ?? 0) < 5 && (product()?.stock_disponible ?? 0) > 0" variant="outline" class="text-rose-400 border-rose-500/30">Poco Stock</app-badge>
           </div>
 
           <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight mb-4 cursor-default">
@@ -97,7 +103,7 @@ export interface ProductoDetalle {
           </div>
 
           <p class="text-text-secondary text-base leading-relaxed mb-10 cursor-default">
-            {{ product()?.descripcion }}
+            {{ product()?.descripcion || 'Sin descripción disponible.' }}
           </p>
 
           <!-- Add to Cart / Actions -->
@@ -116,7 +122,7 @@ export interface ProductoDetalle {
                 <button 
                   (click)="increaseQuantity()"
                   class="p-4 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:hover:scale-100 focus:outline-none cursor-pointer"
-                  [disabled]="quantity() >= product()!.stock_disponible"
+                  [disabled]="quantity() >= (product()?.stock_disponible ?? 0)"
                 >
                   <lucide-icon [img]="Plus" [size]="16"></lucide-icon>
                 </button>
@@ -128,9 +134,9 @@ export interface ProductoDetalle {
                 size="lg" 
                 class="flex-grow"
                 (onClick)="addToCart()"
-                [disabled]="product()?.stock_disponible === 0"
+                [disabled]="(product()?.stock_disponible ?? 0) === 0"
               >
-                {{ product()?.stock_disponible === 0 ? 'Agotado' : 'Añadir al carrito' }}
+                {{ (product()?.stock_disponible ?? 0) === 0 ? 'Agotado' : 'Añadir al carrito' }}
               </app-button>
             </div>
           </div>
@@ -158,7 +164,7 @@ export interface ProductoDetalle {
           </div>
 
           <!-- Specifications -->
-          <div class="mt-auto">
+          <div *ngIf="product()?.especificaciones?.length" class="mt-auto">
             <h3 class="text-lg font-bold text-text-primary border-b border-border-subtle pb-4 mb-4">Especificaciones Técnicas</h3>
             <dl class="space-y-4">
               <div *ngFor="let spec of product()?.especificaciones" class="grid grid-cols-3 gap-4">
@@ -168,6 +174,8 @@ export interface ProductoDetalle {
             </dl>
           </div>
 
+          <!-- SKU Info -->
+          <p class="mt-8 text-xs text-text-secondary/60 cursor-default">SKU: {{ product()?.sku }}</p>
         </div>
       </div>
       
@@ -175,12 +183,16 @@ export interface ProductoDetalle {
   `,
   styles: []
 })
-export class ProductDetailComponent implements OnInit {
+export class ProductDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
+  private productService = inject(ProductService);
   private cartService = inject(CartService);
+  private toast = inject(ToastService);
+  private destroy$ = new Subject<void>();
 
   loading = signal<boolean>(true);
-  product = signal<ProductoDetalle | null>(null);
+  product = signal<ProductoDetallePublico | null>(null);
+  error = signal<string | null>(null);
   quantity = signal<number>(1);
 
   readonly ArrowLeft = ArrowLeft;
@@ -189,10 +201,10 @@ export class ProductDetailComponent implements OnInit {
   readonly ShieldCheck = ShieldCheck;
   readonly Plus = Plus;
   readonly Minus = Minus;
+  readonly AlertCircle = AlertCircle;
 
   ngOnInit() {
-    // Escuchar el slug de la URL
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const slug = params.get('slug');
       if (slug) {
         this.fetchProductDetail(slug);
@@ -200,43 +212,42 @@ export class ProductDetailComponent implements OnInit {
     });
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   fetchProductDetail(slug: string) {
     this.loading.set(true);
-    // Simulación hasta conectar con backend HTTP
-    setTimeout(() => {
-      // Mock data
-      this.product.set({
-        id: 1,
-        sku: 'AUD-001',
-        slug: slug,
-        nombre: 'CyberX Pro Headphones with Active Noise Cancelling',
-        descripcion: 'Experimenta el sonido puro con la tecnología de cancelación de ruido activa de última generación. Los CyberX Pro están diseñados acústicamente para ofrecer agudos cristalinos y graves profundos sin distorsión. Batería de 40 horas, carga rápida y diseño ultraligero para comodidad durante todo el día.',
-        precio: 299.99,
-        precio_oferta: 249.99,
-        stock_disponible: 45,
-        categoria_nombre: 'Audio',
-        marca_nombre: 'Sony',
-        imagen_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80&auto=format&fit=crop',
-        activo: true,
-        especificaciones: [
-          { clave: 'Cancelación de Ruido', valor: 'Activa Híbrida (ANC)' },
-          { clave: 'Duración Batería', valor: 'Hasta 40 horas' },
-          { clave: 'Conectividad', valor: 'Bluetooth 5.3, Multipunto' },
-          { clave: 'Peso', valor: '254 gramos' }
-        ]
-      });
-      this.loading.set(false);
-    }, 600);
+    this.error.set(null);
+    this.product.set(null);
+    this.quantity.set(1);
+
+    this.productService.getProductoBySlug(slug).subscribe({
+      next: (data) => {
+        this.product.set(data);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        const msg = err?.error?.detail || 'No se pudo cargar el producto. Intenta de nuevo.';
+        this.error.set(msg);
+        this.loading.set(false);
+      }
+    });
   }
 
   requiresWhiteBg(): boolean {
     const cat = this.product()?.categoria_nombre;
-    // Lógica similar al catalog component para forzar fondo blanco a fotos con fondo blanco cocinado
     return cat === 'Wearables' || cat === 'Audio';
   }
 
+  onImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    img.src = 'https://placehold.co/800x800/1E293B/38BDF8?text=SIN+IMAGEN';
+  }
+
   increaseQuantity() {
-    const max = this.product()?.stock_disponible || 1;
+    const max = this.product()?.stock_disponible ?? 1;
     if (this.quantity() < max) {
       this.quantity.update(q => q + 1);
     }
@@ -251,14 +262,13 @@ export class ProductDetailComponent implements OnInit {
   addToCart() {
     const p = this.product();
     if (p) {
-      // Mapear ProductoDetalle a ProductData para el CartService
       const cartItem = {
         id: p.id,
         nombre: p.nombre,
         precio: p.precio,
-        precio_oferta: p.precio_oferta,
-        imagen_url: p.imagen_url,
-        categoria_nombre: p.categoria_nombre
+        precio_oferta: p.precio_oferta ?? undefined,
+        imagen_url: p.imagen_url ?? undefined,
+        categoria_nombre: p.categoria_nombre ?? undefined,
       };
       this.cartService.addToCart(cartItem, this.quantity());
     }
