@@ -4,6 +4,7 @@ Repositorio de acceso a datos para carritos.
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.carrito import Carrito, CarritoItem
 
@@ -13,9 +14,25 @@ class CarritoRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def _query_with_items(self):
+        return (
+            select(Carrito)
+            .options(selectinload(Carrito.items).selectinload(CarritoItem.producto))
+            .execution_options(populate_existing=True)
+        )
+
+    async def get_by_id(self, carrito_id: int) -> Carrito | None:
+        result = await self.db.execute(
+            self._query_with_items().where(Carrito.id == carrito_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_active_by_user(self, usuario_id: str) -> Carrito | None:
         result = await self.db.execute(
-            select(Carrito).where(Carrito.usuario_id == usuario_id, Carrito.estado == "activo")
+            self._query_with_items().where(
+                Carrito.usuario_id == usuario_id,
+                Carrito.estado == "activo",
+            )
         )
         return result.scalar_one_or_none()
 
@@ -27,8 +44,12 @@ class CarritoRepository:
 
     async def get_or_create_active(self, usuario_id: str) -> Carrito:
         carrito = await self.get_active_by_user(usuario_id)
-        if not carrito:
-            carrito = await self.create(usuario_id)
+        if carrito:
+            return carrito
+        carrito = await self.create(usuario_id)
+        loaded_carrito = await self.get_by_id(carrito.id)
+        if loaded_carrito:
+            return loaded_carrito
         return carrito
 
     async def finalize(self, carrito: Carrito) -> None:
