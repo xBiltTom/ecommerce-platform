@@ -108,6 +108,31 @@ export interface AdminPedido {
   total_items: number;
 }
 
+export interface AdminPedidoDetalleItem {
+  id: number;
+  producto_id?: number | null;
+  sku_producto: string;
+  nombre_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+export interface AdminPedidoDetalle {
+  id: string;
+  nombre_destinatario: string;
+  direccion_envio: string;
+  ciudad_envio: string;
+  pais_envio: string;
+  subtotal: number;
+  descuento: number;
+  costo_envio: number;
+  total: number;
+  estado: EstadoPedido;
+  items: AdminPedidoDetalleItem[];
+  fecha_creacion: string;
+}
+
 export interface ProductoCatalogo {
   id: number;
   nombre: string;
@@ -267,8 +292,8 @@ export class AdminService {
     return this.http.put<{ message: string }>(`${this.ADMIN_URL}/pedidos/${pedidoId}/estado`, payload);
   }
 
-  getPedidoDetalle(pedidoId: string): Observable<any> {
-    return this.http.get<any>(`${this.ADMIN_URL}/pedidos/${pedidoId}`);
+  getPedidoDetalle(pedidoId: string): Observable<AdminPedidoDetalle> {
+    return this.http.get<AdminPedidoDetalle>(`${this.ADMIN_URL}/pedidos/${pedidoId}`);
   }
 
   // -- Productos (CRUD) --

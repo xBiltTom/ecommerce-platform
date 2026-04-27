@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   AdminPedido,
+  AdminPedidoDetalle,
+  AdminPedidoDetalleItem,
   AdminService,
   EstadoPedido,
   PaginatedResponse,
@@ -24,6 +26,18 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 interface EstadoOption {
   label: string;
   value: EstadoPedido;
+}
+
+interface AdminPedidoDetalleItemView extends AdminPedidoDetalleItem {
+  igv_unitario: number;
+  subtotal_con_igv: number;
+}
+
+interface AdminPedidoDetalleView extends AdminPedidoDetalle {
+  items: AdminPedidoDetalleItemView[];
+  igv_total: number;
+  subtotal_con_igv: number;
+  total_con_igv: number;
 }
 
 @Component({
@@ -184,12 +198,12 @@ interface EstadoOption {
       </section>
 
       <!-- Modal de Detalle de Pedido -->
-      <div *ngIf="selectedPedido()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div *ngIf="selectedPedido() as pedido" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div class="bg-bg-surface border border-border-subtle rounded-card w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div class="flex items-center justify-between p-5 border-b border-border-subtle bg-bg-main/50">
             <div>
-              <h2 class="text-xl font-bold tracking-tight">Pedido #{{ shortId(selectedPedido().id) }}</h2>
-              <p class="text-sm text-text-secondary">{{ toDate(selectedPedido().fecha_creacion) }}</p>
+              <h2 class="text-xl font-bold tracking-tight">Pedido #{{ shortId(pedido.id) }}</h2>
+              <p class="text-sm text-text-secondary">{{ toDate(pedido.fecha_creacion) }}</p>
             </div>
             <button (click)="cerrarModal()" class="p-2 text-text-secondary hover:text-text-primary rounded-sm hover:bg-bg-main transition-colors">
               <lucide-icon [img]="X" [size]="20"></lucide-icon>
@@ -201,20 +215,20 @@ interface EstadoOption {
               <div class="space-y-4">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">Datos del Cliente</h3>
                 <div class="space-y-2 text-sm">
-                  <p><span class="text-text-secondary">Destinatario:</span> <span class="font-medium">{{ selectedPedido().nombre_destinatario }}</span></p>
+                  <p><span class="text-text-secondary">Destinatario:</span> <span class="font-medium">{{ pedido.nombre_destinatario }}</span></p>
                   <p><span class="text-text-secondary">Estado actual:</span> 
-                    <span class="inline-flex ml-2 px-2 py-0.5 rounded-sm text-xs font-semibold" [ngClass]="estadoBadge(selectedPedido().estado)">
-                      {{ humanEstado(selectedPedido().estado) }}
+                    <span class="inline-flex ml-2 px-2 py-0.5 rounded-sm text-xs font-semibold" [ngClass]="estadoBadge(pedido.estado)">
+                      {{ humanEstado(pedido.estado) }}
                     </span>
                   </p>
                 </div>
               </div>
-              
+               
               <div class="space-y-4">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">Direccion de Envio</h3>
                 <div class="space-y-2 text-sm">
-                  <p><span class="text-text-secondary">Direccion:</span> <span class="font-medium">{{ selectedPedido().direccion_envio }}</span></p>
-                  <p><span class="text-text-secondary">Ciudad/Pais:</span> <span class="font-medium">{{ selectedPedido().ciudad_envio }}, {{ selectedPedido().pais_envio }}</span></p>
+                  <p><span class="text-text-secondary">Direccion:</span> <span class="font-medium">{{ pedido.direccion_envio }}</span></p>
+                  <p><span class="text-text-secondary">Ciudad/Pais:</span> <span class="font-medium">{{ pedido.ciudad_envio }}, {{ pedido.pais_envio }}</span></p>
                 </div>
               </div>
             </div>
@@ -229,16 +243,18 @@ interface EstadoOption {
                       <th class="px-3 py-2">SKU</th>
                       <th class="px-3 py-2 text-right">Cant.</th>
                       <th class="px-3 py-2 text-right">Precio</th>
+                      <th class="px-3 py-2 text-right">IGV (18%)</th>
                       <th class="px-3 py-2 text-right">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border-subtle">
-                    <tr *ngFor="let item of selectedPedido().items" class="hover:bg-bg-main/30">
+                    <tr *ngFor="let item of pedido.items" class="hover:bg-bg-main/30">
                       <td class="px-3 py-2 font-medium">{{ item.nombre_producto }}</td>
                       <td class="px-3 py-2 text-text-secondary">{{ item.sku_producto }}</td>
                       <td class="px-3 py-2 text-right">{{ item.cantidad }}</td>
                       <td class="px-3 py-2 text-right">{{ item.precio_unitario | currency:'PEN':'S/ ' }}</td>
-                      <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right text-emerald-300">{{ item.igv_unitario | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal_con_igv | currency:'PEN':'S/ ' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -249,15 +265,23 @@ interface EstadoOption {
               <div class="w-full max-w-xs space-y-2 text-sm">
                 <div class="flex justify-between text-text-secondary">
                   <span>Subtotal:</span>
-                  <span>{{ selectedPedido().subtotal | currency:'PEN':'S/ ' }}</span>
+                  <span>{{ pedido.subtotal_con_igv | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div class="flex justify-between text-text-secondary">
+                  <span>IGV total:</span>
+                  <span>{{ pedido.igv_total | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div *ngIf="pedido.descuento > 0" class="flex justify-between text-text-secondary">
+                  <span>Descuento:</span>
+                  <span>-{{ pedido.descuento | currency:'PEN':'S/ ' }}</span>
                 </div>
                 <div class="flex justify-between text-text-secondary">
                   <span>Envío:</span>
-                  <span>{{ selectedPedido().costo_envio | currency:'PEN':'S/ ' }}</span>
+                  <span>{{ pedido.costo_envio | currency:'PEN':'S/ ' }}</span>
                 </div>
                 <div class="flex justify-between font-bold text-lg pt-2 border-t border-border-subtle">
                   <span>Total:</span>
-                  <span class="text-accent-primary">{{ selectedPedido().total | currency:'PEN':'S/ ' }}</span>
+                  <span class="text-accent-primary">{{ pedido.total_con_igv | currency:'PEN':'S/ ' }}</span>
                 </div>
               </div>
             </div>
@@ -275,6 +299,7 @@ interface EstadoOption {
 export class AdminPedidosComponent implements OnInit {
   private readonly adminService = inject(AdminService);
   private readonly toast = inject(ToastService);
+  private readonly IGV_RATE = 0.18;
 
   readonly Search = Search;
   readonly ChevronDown = ChevronDown;
@@ -304,7 +329,7 @@ export class AdminPedidosComponent implements OnInit {
   readonly totalPages = signal(0);
 
   readonly nextEstado = signal<Record<string, EstadoPedido>>({});
-  readonly selectedPedido = signal<any | null>(null);
+  readonly selectedPedido = signal<AdminPedidoDetalleView | null>(null);
 
   searchText = '';
   estadoFilter: '' | EstadoPedido = '';
@@ -328,7 +353,7 @@ export class AdminPedidosComponent implements OnInit {
   verDetalle(pedidoId: string): void {
     this.adminService.getPedidoDetalle(pedidoId).subscribe({
       next: (data) => {
-        this.selectedPedido.set(data);
+        this.selectedPedido.set(this.buildPedidoDetalleView(data));
       },
       error: () => {
         this.toast.error('Error al cargar detalle del pedido');
@@ -497,5 +522,47 @@ export class AdminPedidosComponent implements OnInit {
 
   private getPedidoState(pedidoId: string): EstadoPedido | undefined {
     return this.pedidos().find((pedido) => pedido.id === pedidoId)?.estado;
+  }
+
+  private buildPedidoDetalleView(pedido: AdminPedidoDetalle): AdminPedidoDetalleView {
+    const items = (pedido.items ?? []).map((item) => {
+      const precioUnitario = this.toAmount(item.precio_unitario);
+      const cantidad = Math.max(0, this.toAmount(item.cantidad));
+      const igvUnitario = this.roundMoney(precioUnitario * this.IGV_RATE);
+      const subtotalConIgv = this.roundMoney((precioUnitario + igvUnitario) * cantidad);
+
+      return {
+        ...item,
+        precio_unitario: precioUnitario,
+        cantidad,
+        igv_unitario: igvUnitario,
+        subtotal_con_igv: subtotalConIgv,
+      };
+    });
+
+    const subtotalConIgv = this.roundMoney(items.reduce((acc, item) => acc + item.subtotal_con_igv, 0));
+    const igvTotal = this.roundMoney(items.reduce((acc, item) => acc + item.igv_unitario * item.cantidad, 0));
+    const descuento = this.toAmount(pedido.descuento);
+    const costoEnvio = this.toAmount(pedido.costo_envio);
+    const totalConIgv = this.roundMoney(subtotalConIgv - descuento + costoEnvio);
+
+    return {
+      ...pedido,
+      items,
+      descuento,
+      costo_envio: costoEnvio,
+      igv_total: igvTotal,
+      subtotal_con_igv: subtotalConIgv,
+      total_con_igv: totalConIgv,
+    };
+  }
+
+  private toAmount(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 }
