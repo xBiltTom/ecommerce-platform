@@ -194,7 +194,7 @@ import {
 
       <div class="flex flex-col md:flex-row gap-10">
         <!-- Sidebar Filters -->
-        <aside class="hidden md:block w-72 flex-shrink-0">
+        <aside class="hidden md:block w-72 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto pr-4 pb-4 filters-scrollbar">
           <ng-container [ngTemplateOutlet]="filtersTemplate"></ng-container>
         </aside>
 
@@ -261,7 +261,26 @@ import {
       </div>
     </div>
   `,
-  styles: []
+  styles: [`
+    .filters-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .filters-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .filters-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #3f3f46;
+      border-radius: 4px;
+    }
+    .filters-scrollbar::-webkit-scrollbar-thumb:hover {
+      background-color: #71717a;
+    }
+    /* Firefox */
+    .filters-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: #3f3f46 transparent;
+    }
+  `]
 })
 export class CatalogComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
