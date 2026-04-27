@@ -30,12 +30,15 @@ interface EstadoOption {
 
 interface AdminPedidoDetalleItemView extends AdminPedidoDetalleItem {
   igv_unitario: number;
+  igv_total: number;
+  subtotal_sin_igv: number;
   subtotal_con_igv: number;
 }
 
 interface AdminPedidoDetalleView extends AdminPedidoDetalle {
   items: AdminPedidoDetalleItemView[];
   igv_total: number;
+  subtotal_sin_igv: number;
   subtotal_con_igv: number;
   total_con_igv: number;
 }
@@ -242,9 +245,9 @@ interface AdminPedidoDetalleView extends AdminPedidoDetalle {
                       <th class="px-3 py-2">Producto</th>
                       <th class="px-3 py-2">SKU</th>
                       <th class="px-3 py-2 text-right">Cant.</th>
-                      <th class="px-3 py-2 text-right">Precio</th>
-                      <th class="px-3 py-2 text-right">IGV (18%)</th>
                       <th class="px-3 py-2 text-right">Subtotal</th>
+                      <th class="px-3 py-2 text-right">IGV (18%)</th>
+                      <th class="px-3 py-2 text-right">Importe</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border-subtle">
@@ -252,8 +255,8 @@ interface AdminPedidoDetalleView extends AdminPedidoDetalle {
                       <td class="px-3 py-2 font-medium">{{ item.nombre_producto }}</td>
                       <td class="px-3 py-2 text-text-secondary">{{ item.sku_producto }}</td>
                       <td class="px-3 py-2 text-right">{{ item.cantidad }}</td>
-                      <td class="px-3 py-2 text-right">{{ item.precio_unitario | currency:'PEN':'S/ ' }}</td>
-                      <td class="px-3 py-2 text-right text-emerald-300">{{ item.igv_unitario | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right">{{ item.subtotal_sin_igv | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right text-emerald-300">{{ item.igv_total | currency:'PEN':'S/ ' }}</td>
                       <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal_con_igv | currency:'PEN':'S/ ' }}</td>
                     </tr>
                   </tbody>
@@ -265,7 +268,7 @@ interface AdminPedidoDetalleView extends AdminPedidoDetalle {
               <div class="w-full max-w-xs space-y-2 text-sm">
                 <div class="flex justify-between text-text-secondary">
                   <span>Subtotal:</span>
-                  <span>{{ pedido.subtotal_con_igv | currency:'PEN':'S/ ' }}</span>
+                  <span>{{ pedido.subtotal_sin_igv | currency:'PEN':'S/ ' }}</span>
                 </div>
                 <div class="flex justify-between text-text-secondary">
                   <span>IGV total:</span>
@@ -529,19 +532,24 @@ export class AdminPedidosComponent implements OnInit {
       const precioUnitario = this.toAmount(item.precio_unitario);
       const cantidad = Math.max(0, this.toAmount(item.cantidad));
       const igvUnitario = this.roundMoney(precioUnitario * this.IGV_RATE);
-      const subtotalConIgv = this.roundMoney((precioUnitario + igvUnitario) * cantidad);
+      const igvTotal = this.roundMoney(igvUnitario * cantidad);
+      const subtotalSinIgv = this.roundMoney((precioUnitario - igvUnitario) * cantidad);
+      const subtotalConIgv = this.roundMoney(precioUnitario * cantidad);
 
       return {
         ...item,
         precio_unitario: precioUnitario,
         cantidad,
         igv_unitario: igvUnitario,
+        igv_total: igvTotal,
+        subtotal_sin_igv: subtotalSinIgv,
         subtotal_con_igv: subtotalConIgv,
       };
     });
 
+    const subtotalSinIgv = this.roundMoney(items.reduce((acc, item) => acc + item.subtotal_sin_igv, 0));
     const subtotalConIgv = this.roundMoney(items.reduce((acc, item) => acc + item.subtotal_con_igv, 0));
-    const igvTotal = this.roundMoney(items.reduce((acc, item) => acc + item.igv_unitario * item.cantidad, 0));
+    const igvTotal = this.roundMoney(items.reduce((acc, item) => acc + item.igv_total, 0));
     const descuento = this.toAmount(pedido.descuento);
     const costoEnvio = this.toAmount(pedido.costo_envio);
     const totalConIgv = this.roundMoney(subtotalConIgv - descuento + costoEnvio);
@@ -552,6 +560,7 @@ export class AdminPedidosComponent implements OnInit {
       descuento,
       costo_envio: costoEnvio,
       igv_total: igvTotal,
+      subtotal_sin_igv: subtotalSinIgv,
       subtotal_con_igv: subtotalConIgv,
       total_con_igv: totalConIgv,
     };

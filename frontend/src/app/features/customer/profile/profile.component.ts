@@ -15,6 +15,21 @@ import { InputComponent } from '../../../shared/components/input/input.component
 
 type ProfileSection = 'datos' | 'pedidos';
 
+type PedidoDetalleItemView = PedidoDetalle['items'][number] & {
+  igv_unitario: number;
+  igv_total: number;
+  subtotal_sin_igv: number;
+  subtotal_con_igv: number;
+};
+
+type PedidoDetalleView = PedidoDetalle & {
+  items: PedidoDetalleItemView[];
+  igv_total: number;
+  subtotal_sin_igv: number;
+  subtotal_con_igv: number;
+  total_con_igv: number;
+};
+
 @Component({
   selector: 'app-profile',
   standalone: true,
@@ -384,7 +399,7 @@ type ProfileSection = 'datos' | 'pedidos';
 
                 <div class="rounded-sm border border-border-subtle p-3">
                   <p class="text-xs uppercase tracking-[0.14em] text-text-secondary">Total</p>
-                  <p class="font-semibold mt-2">{{ pedido.total | currency:'PEN':'S/ ' }}</p>
+                  <p class="font-semibold mt-2">{{ pedido.total_con_igv | currency:'PEN':'S/ ' }}</p>
                 </div>
               </div>
 
@@ -395,8 +410,9 @@ type ProfileSection = 'datos' | 'pedidos';
                       <th class="px-3 py-2">Producto</th>
                       <th class="px-3 py-2">SKU</th>
                       <th class="px-3 py-2 text-right">Cant.</th>
-                      <th class="px-3 py-2 text-right">Precio</th>
                       <th class="px-3 py-2 text-right">Subtotal</th>
+                      <th class="px-3 py-2 text-right">IGV (18%)</th>
+                      <th class="px-3 py-2 text-right">Importe</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border-subtle">
@@ -404,8 +420,9 @@ type ProfileSection = 'datos' | 'pedidos';
                       <td class="px-3 py-2 font-medium">{{ item.nombre_producto }}</td>
                       <td class="px-3 py-2 text-text-secondary">{{ item.sku_producto }}</td>
                       <td class="px-3 py-2 text-right">{{ item.cantidad }}</td>
-                      <td class="px-3 py-2 text-right">{{ item.precio_unitario | currency:'PEN':'S/ ' }}</td>
-                      <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right">{{ item.subtotal_sin_igv | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right text-emerald-300">{{ item.igv_total | currency:'PEN':'S/ ' }}</td>
+                      <td class="px-3 py-2 text-right font-semibold">{{ item.subtotal_con_igv | currency:'PEN':'S/ ' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -421,10 +438,11 @@ type ProfileSection = 'datos' | 'pedidos';
                   </div>
 
                   <div class="md:text-right space-y-1">
-                    <p class="text-sm text-text-secondary">Subtotal: <span class="text-text-primary">{{ pedido.subtotal | currency:'PEN':'S/ ' }}</span></p>
+                    <p class="text-sm text-text-secondary">Subtotal: <span class="text-text-primary">{{ pedido.subtotal_sin_igv | currency:'PEN':'S/ ' }}</span></p>
+                    <p class="text-sm text-text-secondary">IGV total: <span class="text-text-primary">{{ pedido.igv_total | currency:'PEN':'S/ ' }}</span></p>
                     <p class="text-sm text-text-secondary">Descuento: <span class="text-text-primary">{{ pedido.descuento | currency:'PEN':'S/ ' }}</span></p>
                     <p class="text-sm text-text-secondary">Envio: <span class="text-text-primary">{{ pedido.costo_envio | currency:'PEN':'S/ ' }}</span></p>
-                    <p class="text-lg font-bold pt-2">Total: {{ pedido.total | currency:'PEN':'S/ ' }}</p>
+                    <p class="text-lg font-bold pt-2">Total: {{ pedido.total_con_igv | currency:'PEN':'S/ ' }}</p>
                   </div>
                 </div>
               </div>
@@ -460,6 +478,7 @@ export class ProfileComponent implements OnInit {
   private readonly checkoutService = inject(CheckoutService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly IGV_RATE = 0.18;
 
   readonly User = User;
   readonly ShoppingBag = ShoppingBag;
@@ -488,7 +507,7 @@ export class ProfileComponent implements OnInit {
 
   readonly isPedidoModalOpen = signal(false);
   readonly selectedPedidoId = signal<string | null>(null);
-  readonly selectedPedido = signal<PedidoDetalle | null>(null);
+  readonly selectedPedido = signal<PedidoDetalleView | null>(null);
   readonly loadingPedidoDetalle = signal(false);
   readonly cancelingPedidoId = signal<string | null>(null);
 
@@ -647,7 +666,7 @@ export class ProfileComponent implements OnInit {
 
     this.checkoutService.getPedidoDetalle(pedidoId).subscribe({
       next: (pedido) => {
-        this.selectedPedido.set(pedido);
+        this.selectedPedido.set(this.buildPedidoDetalleView(pedido));
         this.loadingPedidoDetalle.set(false);
       },
       error: () => {
@@ -798,6 +817,54 @@ export class ProfileComponent implements OnInit {
 
   trackByPedidoItemId(index: number, item: { id: number }): number {
     return item.id;
+  }
+
+  private buildPedidoDetalleView(pedido: PedidoDetalle): PedidoDetalleView {
+    const items = (pedido.items ?? []).map((item) => {
+      const precioUnitario = this.toAmount(item.precio_unitario);
+      const cantidad = Math.max(0, this.toAmount(item.cantidad));
+      const igvUnitario = this.roundMoney(precioUnitario * this.IGV_RATE);
+      const igvTotal = this.roundMoney(igvUnitario * cantidad);
+      const subtotalSinIgv = this.roundMoney((precioUnitario - igvUnitario) * cantidad);
+      const subtotalConIgv = this.roundMoney(precioUnitario * cantidad);
+
+      return {
+        ...item,
+        precio_unitario: precioUnitario,
+        cantidad,
+        igv_unitario: igvUnitario,
+        igv_total: igvTotal,
+        subtotal_sin_igv: subtotalSinIgv,
+        subtotal_con_igv: subtotalConIgv,
+      };
+    });
+
+    const subtotalSinIgv = this.roundMoney(items.reduce((acc, item) => acc + item.subtotal_sin_igv, 0));
+    const subtotalConIgv = this.roundMoney(items.reduce((acc, item) => acc + item.subtotal_con_igv, 0));
+    const igvTotal = this.roundMoney(items.reduce((acc, item) => acc + item.igv_total, 0));
+    const descuento = this.toAmount(pedido.descuento);
+    const costoEnvio = this.toAmount(pedido.costo_envio);
+    const totalConIgv = this.roundMoney(subtotalConIgv - descuento + costoEnvio);
+
+    return {
+      ...pedido,
+      items,
+      descuento,
+      costo_envio: costoEnvio,
+      igv_total: igvTotal,
+      subtotal_sin_igv: subtotalSinIgv,
+      subtotal_con_igv: subtotalConIgv,
+      total_con_igv: totalConIgv,
+    };
+  }
+
+  private toAmount(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   private patchProfileForm(user: Usuario): void {
