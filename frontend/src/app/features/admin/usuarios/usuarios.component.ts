@@ -283,6 +283,8 @@ export class AdminUsuariosComponent implements OnInit {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      hour: '2-digit',
+      hour12: true
     }).format(date);
   }
 
