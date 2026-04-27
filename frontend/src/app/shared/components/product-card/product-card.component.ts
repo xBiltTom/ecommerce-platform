@@ -13,6 +13,7 @@ export interface ProductData {
   precio_oferta?: number;
   imagen_url?: string;
   categoria_nombre?: string;
+  stock_disponible?: number;
 }
 
 @Component({
@@ -27,6 +28,13 @@ export interface ProductData {
       <div class="absolute top-3 left-3 z-10 flex flex-col gap-2">
         <app-badge *ngIf="product.precio_oferta" variant="default">Oferta</app-badge>
         <app-badge *ngIf="isNew" variant="glass">Nuevo</app-badge>
+      </div>
+
+      <div
+        *ngIf="isOutOfStock(product)"
+        class="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-pill bg-rose-500/90 text-white text-[11px] font-semibold uppercase tracking-[0.14em] shadow-lg"
+      >
+        Agotado
       </div>
 
       <!-- Contenedor de imagen -->
@@ -92,6 +100,10 @@ export class ProductCardComponent {
   @Output() onClick = new EventEmitter<ProductData>();
   
   readonly ShoppingCart = ShoppingCart;
+
+  isOutOfStock(product: ProductData): boolean {
+    return typeof product.stock_disponible === 'number' && product.stock_disponible <= 0;
+  }
 
   getProductSlug(product: ProductData): string {
     if (product.slug && product.slug.trim()) {
