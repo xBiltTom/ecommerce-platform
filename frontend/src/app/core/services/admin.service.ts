@@ -24,6 +24,39 @@ export interface DashboardKPIs {
   productos_bajo_stock: number;
 }
 
+// -- Interfaces para Estadísticas Unificadas (Fase 1) --
+export interface MetricasGenerales {
+  ventas_totales: number;
+  total_pedidos: number;
+  ticket_promedio: number;
+  total_clientes: number;
+  productos_activos: number;
+}
+
+export interface VentasPorCategoriaDashboard {
+  categoria: string;
+  cantidad_vendida: number;
+  ingresos: number;
+}
+
+export interface VentasTimelineDashboard {
+  fecha: string;
+  ingresos: number;
+  cantidad_pedidos: number;
+}
+
+export interface FrecuenciaCompra {
+  rango: string;
+  cantidad_clientes: number;
+}
+
+export interface EstadisticasDashboard {
+  metricas: MetricasGenerales;
+  ventas_por_categoria: VentasPorCategoriaDashboard[];
+  ventas_timeline: VentasTimelineDashboard[];
+  frecuencia_compras: FrecuenciaCompra[];
+}
+
 export interface VentasPorPeriodo {
   periodo: string;
   total: number;
@@ -321,5 +354,21 @@ export class AdminService {
   // Reporte PDF
   descargarReporteVentas(): Observable<Blob> {
     return this.http.get(`${this.ADMIN_URL}/reportes/ventas/pdf`, { responseType: 'blob' });
+  }
+
+  // -- Estadísticas Unificadas (Fase 1 y 2) --
+  getEstadisticasDashboard(periodo: DashboardPeriodo = 'mes'): Observable<EstadisticasDashboard> {
+    const params = this.toParams({ periodo });
+    return this.http.get<EstadisticasDashboard>(`${this.ADMIN_URL}/estadisticas/dashboard`, { params });
+  }
+
+  descargarReporteOperacional(fechaInicio: string, fechaFin: string): Observable<Blob> {
+    const params = this.toParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
+    return this.http.get(`${this.ADMIN_URL}/reportes/operacional`, { params, responseType: 'blob' });
+  }
+
+  descargarReporteGestion(fechaInicio: string, fechaFin: string): Observable<Blob> {
+    const params = this.toParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
+    return this.http.get(`${this.ADMIN_URL}/reportes/gestion`, { params, responseType: 'blob' });
   }
 }
