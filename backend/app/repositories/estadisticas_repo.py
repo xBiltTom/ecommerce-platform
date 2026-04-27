@@ -4,6 +4,8 @@ Repositorio de consultas agregadas para el dashboard de estadísticas.
 Todas las consultas usan SQLAlchemy sobre los modelos ORM existentes.
 """
 
+from datetime import datetime
+
 from sqlalchemy import select, func, case, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -147,3 +149,149 @@ class EstadisticasRepository:
             {"rango": r, "cantidad_clientes": data.get(r, 0)}
             for r in rangos_orden
         ]
+
+    # ── Reporte Operacional ──
+
+    async def get_pedidos_por_rango(
+        self,
+        fecha_inicio: datetime,
+        fecha_fin: datetime,
+    ) -> list[dict]:
+        """
+        Lista de pedidos en un rango de fechas para el reporte operacional.
+        Incluye id, nombre del cliente, fecha, estado y total.
+        """
+        result = await self.db.execute(
+            select(
+                Pedido.id,
+                (Usuario.nombre + " " + Usuario.apellido).label("cliente"),
+                Usuario.email.label("email"),
+                Pedido.fecha_creacion,
+                Pedido.estado,
+                Pedido.total,
+            )
+            .join(Usuario, Pedido.usuario_id == Usuario.id)
+            .where(
+                Pedido.fecha_creacion >= fecha_inicio,
+                Pedido.fecha_creacion <= fecha_fin,
+            )
+            .order_by(Pedido.fecha_creacion.asc())
+        )
+        return [
+            {
+                "id": str(row.id)[:8].upper(),     # Mostrar solo los primeros 8 chars del UUID
+                "cliente": row.cliente,
+                "email": row.email,
+                "fecha": row.fecha_creacion,
+                "estado": row.estado,
+                "total": float(row.total),
+            }
+            for row in result.all()
+        ]
+
+    # ── Reporte de Gestión ──
+
+    async def get_kpis_gestion(
+        self,
+        fecha_inicio: datetime,
+        fecha_fin: datetime,
+    ) -> dict:
+        """
+        KPIs agregados para el reporte de gestión en un rango de fechas.
+        Devuelve: ingresos totales, producto más vendido, ticket promedio,
+        clientes nuevos vs recurrentes, y rentabilidad estimada.
+        """
+        # Ingresos totales del periodo
+        r_ingresos = await self.db.execute(
+            select(func.coalesce(func.sum(Pedido.total), 0))
+            .where(
+                Pedido.estado.in_(_ESTADOS_VENTA),
+                Pedido.fecha_creacion >= fecha_inicio,
+                Pedido.fecha_creacion <= fecha_fin,
+            )
+        )
+        ingresos_totales = float(r_ingresos.scalar() or 0)
+
+        # Total pedidos del periodo
+        r_pedidos = await self.db.execute(
+            select(func.count())
+            .select_from(Pedido)
+            .where(
+                Pedido.estado.in_(_ESTADOS_VENTA),
+                Pedido.fecha_creacion >= fecha_inicio,
+                Pedido.fecha_creacion <= fecha_fin,
+            )
+        )
+        total_pedidos = r_pedidos.scalar() or 0
+
+        ticket_promedio = ingresos_totales / total_pedidos if total_pedidos > 0 else 0.0
+
+        # Producto más vendido (por unidades) en el periodo
+        r_top = await self.db.execute(
+            select(
+                PedidoItem.nombre_producto,
+                PedidoItem.sku_producto,
+                func.sum(PedidoItem.cantidad).label("cantidad_total"),
+                func.sum(PedidoItem.subtotal).label("ingresos_producto"),
+            )
+            .join(Pedido, PedidoItem.pedido_id == Pedido.id)
+            .where(
+                Pedido.estado.in_(_ESTADOS_VENTA),
+                Pedido.fecha_creacion >= fecha_inicio,
+                Pedido.fecha_creacion <= fecha_fin,
+            )
+            .group_by(PedidoItem.nombre_producto, PedidoItem.sku_producto)
+            .order_by(func.sum(PedidoItem.cantidad).desc())
+            .limit(1)
+        )
+        top_row = r_top.first()
+        producto_top = {
+            "nombre": top_row.nombre_producto if top_row else "N/A",
+            "sku": top_row.sku_producto if top_row else "N/A",
+            "cantidad": int(top_row.cantidad_total) if top_row else 0,
+            "ingresos": float(top_row.ingresos_producto) if top_row else 0.0,
+        }
+
+        # Clientes nuevos vs recurrentes
+        # "Nuevo" = primer pedido dentro del rango; "Recurrente" = tenía pedidos anteriores
+        primer_pedido_sq = (
+            select(
+                Pedido.usuario_id,
+                func.min(Pedido.fecha_creacion).label("primer_pedido"),
+            )
+            .group_by(Pedido.usuario_id)
+            .subquery()
+        )
+
+        r_clientes = await self.db.execute(
+            select(
+                func.count(func.distinct(Pedido.usuario_id)).label("total_clientes"),
+                func.sum(
+                    case(
+                        (primer_pedido_sq.c.primer_pedido >= fecha_inicio, 1),
+                        else_=0,
+                    )
+                ).label("nuevos"),
+            )
+            .join(primer_pedido_sq, Pedido.usuario_id == primer_pedido_sq.c.usuario_id)
+            .where(
+                Pedido.fecha_creacion >= fecha_inicio,
+                Pedido.fecha_creacion <= fecha_fin,
+            )
+        )
+        r_cli = r_clientes.first()
+        total_clientes_periodo = int(r_cli.total_clientes) if r_cli else 0
+        clientes_nuevos = int(r_cli.nuevos or 0) if r_cli else 0
+        clientes_recurrentes = total_clientes_periodo - clientes_nuevos
+
+        return {
+            "ingresos_totales": round(ingresos_totales, 2),
+            "total_pedidos": total_pedidos,
+            "ticket_promedio": round(ticket_promedio, 2),
+            "producto_top": producto_top,
+            "clientes_nuevos": clientes_nuevos,
+            "clientes_recurrentes": clientes_recurrentes,
+            "total_clientes_periodo": total_clientes_periodo,
+            # Rentabilidad estimada: sin estructura de costos usamos ingresos totales como proxy
+            "rentabilidad_estimada": round(ingresos_totales * 0.35, 2),  # Margen operativo ~35%
+        }
