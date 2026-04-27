@@ -47,7 +47,7 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 register_exception_handlers(app)
 
 # ── Routers ──
-from app.routes import auth, categorias, marcas, productos, direcciones, carritos, pedidos, pagos, admin  # noqa: E402
+from app.routes import auth, categorias, marcas, productos, direcciones, carritos, pedidos, pagos, admin, estadisticas  # noqa: E402
 
 app.include_router(auth.router, prefix=settings.API_PREFIX)
 app.include_router(categorias.router, prefix=settings.API_PREFIX)
@@ -58,6 +58,7 @@ app.include_router(carritos.router, prefix=settings.API_PREFIX)
 app.include_router(pedidos.router, prefix=settings.API_PREFIX)
 app.include_router(pagos.router, prefix=settings.API_PREFIX)
 app.include_router(admin.router, prefix=settings.API_PREFIX)
+app.include_router(estadisticas.router, prefix=settings.API_PREFIX)
 
 
 @app.get("/health", tags=["Health"])
