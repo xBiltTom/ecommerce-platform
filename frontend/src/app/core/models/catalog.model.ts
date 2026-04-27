@@ -12,6 +12,7 @@ export interface CatalogFilters {
   precioMin: number | null;
   precioMax: number | null;
   buscar: string;
+  enOferta: boolean | null;
   orden: ProductoOrden;
 }
 
@@ -23,6 +24,7 @@ export const DEFAULT_CATALOG_FILTERS: CatalogFilters = {
   precioMin: null,
   precioMax: null,
   buscar: '',
+  enOferta: null,
   orden: 'reciente',
 };
 

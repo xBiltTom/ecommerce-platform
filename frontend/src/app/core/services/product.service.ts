@@ -19,6 +19,7 @@ export interface GetProductosParams {
   marca_id?: number | null;
   precio_min?: number | null;
   precio_max?: number | null;
+  en_oferta?: boolean | null;
   buscar?: string;
   orden?: ProductoOrden;
 }

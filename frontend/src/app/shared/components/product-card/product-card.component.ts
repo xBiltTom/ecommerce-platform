@@ -42,6 +42,11 @@ export interface ProductData {
         />
         <!-- Overlay oscuro sutil (si no requiere fondo blanco) -->
         <div *ngIf="!requiresWhiteBg" class="absolute inset-0 bg-gradient-to-t from-bg-surface/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        
+        <!-- Descuento Circular -->
+        <div *ngIf="product.precio_oferta" class="absolute top-3 right-3 z-20 w-12 h-12 flex items-center justify-center rounded-full bg-accent-primary text-text-inverse font-bold text-sm shadow-lg transform rotate-[-10deg] group-hover:scale-110 transition-transform">
+          -{{ getDiscountPercentage(product) }}%
+        </div>
       </div>
 
       <!-- Detalles del producto -->
@@ -101,5 +106,12 @@ export class ProductCardComponent {
       .trim()
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
+  }
+
+  getDiscountPercentage(product: ProductData): number {
+    if (!product.precio_oferta || product.precio_oferta >= product.precio) {
+      return 0;
+    }
+    return Math.round((1 - (product.precio_oferta / product.precio)) * 100);
   }
 }

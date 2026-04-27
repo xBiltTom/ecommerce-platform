@@ -49,6 +49,7 @@ class ProductoRepository:
         buscar: str | None = None,
         solo_activos: bool = True,
         activo: bool | None = None,
+        en_oferta: bool | None = None,
         orden: str = "reciente",
     ) -> tuple[list[Producto], int]:
         query = select(Producto)
@@ -70,6 +71,11 @@ class ProductoRepository:
         if buscar:
             search = f"%{buscar}%"
             filters.append(Producto.nombre.ilike(search) | Producto.sku.ilike(search))
+        if en_oferta is not None:
+            if en_oferta:
+                filters.append(Producto.precio_oferta.isnot(None))
+            else:
+                filters.append(Producto.precio_oferta.is_(None))
 
         for f in filters:
             query = query.where(f)

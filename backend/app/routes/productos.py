@@ -59,6 +59,7 @@ async def list_productos(
     marca_id: int | None = None,
     precio_min: float | None = None,
     precio_max: float | None = None,
+    en_oferta: bool | None = None,
     buscar: str | None = None,
     orden: str = "reciente",
     activo: bool | None = None,
@@ -77,6 +78,7 @@ async def list_productos(
         page=page, page_size=page_size, categoria_id=categoria_id,
         marca_id=marca_id, precio_min=precio_min, precio_max=precio_max,
         buscar=buscar, orden=orden, solo_activos=solo_activos, activo=activo,
+        en_oferta=en_oferta,
     )
     return PaginatedResponse(
         items=[ProductoListResponse(**_build_list_response(p)) for p in items],

@@ -176,6 +176,15 @@ import {
               </app-button>
             </div>
           </div>
+
+          <div>
+            <h3 class="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">Promociones</h3>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" class="sr-only peer" [checked]="filters().enOferta === true" (change)="toggleOferta()">
+              <div class="w-9 h-5 bg-bg-surface border border-border-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary peer-checked:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent-primary peer-checked:border-accent-primary"></div>
+              <span class="ml-3 text-sm text-text-secondary peer-checked:text-text-primary peer-checked:font-medium transition-colors">Solo en oferta</span>
+            </label>
+          </div>
         </div>
       </ng-template>
 
@@ -373,6 +382,10 @@ export class CatalogComponent implements OnInit, OnDestroy {
     this.updateFilters({ marcaId: null }, true);
   }
 
+  toggleOferta() {
+    this.updateFilters({ enOferta: !this.filters().enOferta ? true : null }, true);
+  }
+
   applyPriceFilter() {
     const parsedMin = this.parsePriceInput(this.priceMinInput());
     const parsedMax = this.parsePriceInput(this.priceMaxInput());
@@ -454,6 +467,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
       state.marcaId !== null ||
       state.precioMin !== null ||
       state.precioMax !== null ||
+      state.enOferta !== null ||
       !!state.buscar ||
       state.orden !== DEFAULT_CATALOG_FILTERS.orden
     );
@@ -507,6 +521,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
       marca_id: filters.marcaId,
       precio_min: filters.precioMin,
       precio_max: filters.precioMax,
+      en_oferta: filters.enOferta,
       buscar: filters.buscar,
       orden: filters.orden,
     };
@@ -520,6 +535,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
     const precioMin = this.parsePriceInput(queryParams.get('precio_min'));
     const precioMax = this.parsePriceInput(queryParams.get('precio_max'));
     const buscar = (queryParams.get('buscar') ?? '').trim();
+    const enOferta = queryParams.has('en_oferta') ? queryParams.get('en_oferta') === 'true' : null;
     const orden = this.parseOrder(queryParams.get('orden'));
 
     return {
@@ -530,6 +546,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
       precioMin,
       precioMax,
       buscar,
+      enOferta,
       orden,
     };
   }
@@ -594,6 +611,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
       marca_id: filters.marcaId,
       precio_min: filters.precioMin,
       precio_max: filters.precioMax,
+      en_oferta: filters.enOferta !== null ? filters.enOferta : null,
       buscar: filters.buscar || null,
       orden: filters.orden !== DEFAULT_CATALOG_FILTERS.orden ? filters.orden : null,
     };
