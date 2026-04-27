@@ -401,7 +401,10 @@ INSERT INTO categorias (nombre, slug, descripcion) VALUES
 ('Laptops', 'laptops', 'Computadoras portátiles de alto rendimiento'),
 ('Smartphones', 'smartphones', 'Teléfonos inteligentes de última generación'),
 ('Televisores', 'televisores', 'Smart TVs y pantallas de alta resolución'),
-('Audio', 'audio', 'Audífonos, parlantes y equipos de sonido')
+('Audio', 'audio', 'Audífonos, parlantes y equipos de sonido'),
+('Tablets', 'tablets', 'Tabletas para productividad y entretenimiento'),
+('Smartwatches', 'smartwatches', 'Relojes inteligentes y wearables'),
+('Monitores', 'monitores', 'Monitores para PC y gaming')
 ON CONFLICT (slug) DO NOTHING;
 
 -- Insertar Marcas
@@ -410,17 +413,37 @@ INSERT INTO marcas (nombre, slug) VALUES
 ('Samsung', 'samsung'),
 ('Sony', 'sony'),
 ('LG', 'lg'),
-('Asus', 'asus')
+('Asus', 'asus'),
+('HP', 'hp'),
+('Dell', 'dell'),
+('Lenovo', 'lenovo'),
+('Xiaomi', 'xiaomi'),
+('Bose', 'bose'),
+('JBL', 'jbl')
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Insertar Productos
-INSERT INTO productos (sku, nombre, slug, descripcion, precio, stock_fisico, stock_reservado, stock_minimo, categoria_id, marca_id) VALUES
-('APP-MBP-14', 'MacBook Pro 14"', 'macbook-pro-14', 'Chip M3 Pro, 16GB RAM, 512GB SSD', 1999.00, 50, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='apple')),
-('APP-IPH-15P', 'iPhone 15 Pro', 'iphone-15-pro', 'Titanio, A17 Pro, 256GB', 1099.00, 100, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='apple')),
-('SAM-S24-U', 'Samsung Galaxy S24 Ultra', 'samsung-galaxy-s24-ultra', 'Snapdragon 8 Gen 3, 256GB, 12GB RAM', 1299.00, 80, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='samsung')),
-('SON-WH1000XM5', 'Sony WH-1000XM5', 'sony-wh-1000xm5', 'Audífonos inalámbricos con cancelación de ruido', 349.00, 150, 0, 20, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='sony')),
-('LG-OLED-65', 'LG OLED TV 65" C3', 'lg-oled-tv-65-c3', 'Smart TV 4K UHD, 120Hz', 1599.00, 30, 0, 5, (SELECT id FROM categorias WHERE slug='televisores'), (SELECT id FROM marcas WHERE slug='lg')),
-('ASU-ROG-G15', 'Asus ROG Strix G15', 'asus-rog-strix-g15', 'Ryzen 9, RTX 4070, 16GB RAM, 1TB SSD', 1499.00, 40, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='asus'))
+INSERT INTO productos (sku, nombre, slug, descripcion, precio, stock_fisico, stock_reservado, stock_minimo, categoria_id, marca_id, imagen_url) VALUES
+('APP-MBP-14', 'MacBook Pro 14"', 'macbook-pro-14', 'Chip M3 Pro, 16GB RAM, 512GB SSD', 1999.00, 50, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='apple'), 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80'),
+('APP-IPH-15P', 'iPhone 15 Pro', 'iphone-15-pro', 'Titanio, A17 Pro, 256GB', 1099.00, 100, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='apple'), 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=800&q=80'),
+('SAM-S24-U', 'Samsung Galaxy S24 Ultra', 'samsung-galaxy-s24-ultra', 'Snapdragon 8 Gen 3, 256GB, 12GB RAM', 1299.00, 80, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='samsung'), 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=800&q=80'),
+('SON-WH1000XM5', 'Sony WH-1000XM5', 'sony-wh-1000xm5', 'Audífonos inalámbricos con cancelación de ruido', 349.00, 150, 0, 20, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='sony'), 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=800&q=80'),
+('LG-OLED-65', 'LG OLED TV 65" C3', 'lg-oled-tv-65-c3', 'Smart TV 4K UHD, 120Hz', 1599.00, 30, 0, 5, (SELECT id FROM categorias WHERE slug='televisores'), (SELECT id FROM marcas WHERE slug='lg'), 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80'),
+('ASU-ROG-G15', 'Asus ROG Strix G15', 'asus-rog-strix-g15', 'Ryzen 9, RTX 4070, 16GB RAM, 1TB SSD', 1499.00, 40, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='asus'), 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=800&q=80'),
+('APP-IPAD-PRO', 'iPad Pro 12.9"', 'ipad-pro-12-9', 'Chip M2, Pantalla Liquid Retina XDR', 1099.00, 60, 0, 10, (SELECT id FROM categorias WHERE slug='tablets'), (SELECT id FROM marcas WHERE slug='apple'), 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=800&q=80'),
+('SAM-TAB-S9', 'Samsung Galaxy Tab S9', 'samsung-galaxy-tab-s9', 'AMOLED 11", Snapdragon 8 Gen 2', 799.00, 75, 0, 10, (SELECT id FROM categorias WHERE slug='tablets'), (SELECT id FROM marcas WHERE slug='samsung'), 'https://images.unsplash.com/photo-1589739900266-43b2843f4c12?auto=format&fit=crop&w=800&q=80'),
+('APP-AW-U2', 'Apple Watch Ultra 2', 'apple-watch-ultra-2', 'Caja de titanio de 49mm, resistente al agua', 799.00, 40, 0, 5, (SELECT id FROM categorias WHERE slug='smartwatches'), (SELECT id FROM marcas WHERE slug='apple'), 'https://images.unsplash.com/photo-1434493789847-2902a52dda56?auto=format&fit=crop&w=800&q=80'),
+('SAM-GW-6', 'Samsung Galaxy Watch 6', 'samsung-galaxy-watch-6', 'Monitoreo avanzado de salud y sueño', 299.00, 90, 0, 10, (SELECT id FROM categorias WHERE slug='smartwatches'), (SELECT id FROM marcas WHERE slug='samsung'), 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=800&q=80'),
+('BOS-QC-ULTRA', 'Bose QuietComfort Ultra', 'bose-qc-ultra', 'Cancelación de ruido de clase mundial', 429.00, 120, 0, 15, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='bose'), 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80'),
+('JBL-FLIP-6', 'JBL Flip 6', 'jbl-flip-6', 'Parlante Bluetooth portátil a prueba de agua', 129.00, 200, 0, 30, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='jbl'), 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80'),
+('XIA-14-PRO', 'Xiaomi 14 Pro', 'xiaomi-14-pro', 'Lentes Leica, Snapdragon 8 Gen 3', 899.00, 65, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='xiaomi'), 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80'),
+('DEL-XPS-15', 'Dell XPS 15', 'dell-xps-15', 'Intel Core i9, 32GB RAM, Pantalla OLED 4K', 2199.00, 25, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='dell'), 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=800&q=80'),
+('LEN-LEG-5', 'Lenovo Legion 5 Pro', 'lenovo-legion-5-pro', 'Ryzen 7, RTX 4060, 16GB RAM', 1399.00, 45, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='lenovo'), 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=800&q=80'),
+('HP-OMEN-16', 'HP Omen 16', 'hp-omen-16', 'Intel Core i7, RTX 4070, Pantalla 165Hz', 1599.00, 35, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='hp'), 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=800&q=80'),
+('LG-ULTRAGEAR-27', 'LG UltraGear 27"', 'lg-ultragear-27', 'Monitor Gaming QHD 165Hz Nano IPS', 399.00, 80, 0, 10, (SELECT id FROM categorias WHERE slug='monitores'), (SELECT id FROM marcas WHERE slug='lg'), 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=800&q=80'),
+('SAM-ODYSSEY-G7', 'Samsung Odyssey G7 32"', 'samsung-odyssey-g7', 'Monitor Curvo 1000R, QHD 240Hz', 699.00, 40, 0, 5, (SELECT id FROM categorias WHERE slug='monitores'), (SELECT id FROM marcas WHERE slug='samsung'), 'https://images.unsplash.com/photo-1586227740560-8cf2732c1531?auto=format&fit=crop&w=800&q=80'),
+('SON-BRAVIA-75', 'Sony Bravia XR 75"', 'sony-bravia-xr-75', 'Mini LED 4K HDR Smart TV', 2499.00, 15, 0, 3, (SELECT id FROM categorias WHERE slug='televisores'), (SELECT id FROM marcas WHERE slug='sony'), 'https://images.unsplash.com/photo-1552831388-6a0b35077328?auto=format&fit=crop&w=800&q=80'),
+('APP-AIRPODS-PRO', 'AirPods Pro 2', 'airpods-pro-2', 'Audio espacial y cancelación de ruido activa', 249.00, 300, 0, 50, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='apple'), 'https://images.unsplash.com/photo-1606220588913-b3aecb492097?auto=format&fit=crop&w=800&q=80')
 ON CONFLICT (sku) DO NOTHING;
 
 -- Insertar Especificaciones
@@ -429,14 +452,17 @@ INSERT INTO productos_especificaciones (producto_id, clave, valor) VALUES
 ((SELECT id FROM productos WHERE sku='APP-MBP-14'), 'RAM', '16GB Unified'),
 ((SELECT id FROM productos WHERE sku='APP-IPH-15P'), 'Capacidad', '256GB'),
 ((SELECT id FROM productos WHERE sku='SAM-S24-U'), 'Cámara', '200MP'),
-((SELECT id FROM productos WHERE sku='SON-WH1000XM5'), 'Batería', '30 horas')
+((SELECT id FROM productos WHERE sku='SON-WH1000XM5'), 'Batería', '30 horas'),
+((SELECT id FROM productos WHERE sku='APP-IPAD-PRO'), 'Pantalla', '12.9" Liquid Retina XDR'),
+((SELECT id FROM productos WHERE sku='SAM-TAB-S9'), 'Pantalla', '11" Dynamic AMOLED 2X'),
+((SELECT id FROM productos WHERE sku='APP-AW-U2'), 'Material', 'Titanio de grado aeroespacial'),
+((SELECT id FROM productos WHERE sku='BOS-QC-ULTRA'), 'Cancelación de ruido', 'Activa adaptativa'),
+((SELECT id FROM productos WHERE sku='DEL-XPS-15'), 'Gráficos', 'NVIDIA RTX 4070')
 ON CONFLICT (producto_id, clave) DO NOTHING;
 
 -- Insertar Movimientos de Inventario (Entrada inicial)
-INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, stock_fisico_anterior, stock_fisico_nuevo, stock_reservado_anterior, stock_reservado_nuevo, motivo) VALUES
-((SELECT id FROM productos WHERE sku='APP-MBP-14'), 'entrada', 50, 0, 50, 0, 0, 'Stock inicial'),
-((SELECT id FROM productos WHERE sku='APP-IPH-15P'), 'entrada', 100, 0, 100, 0, 0, 'Stock inicial'),
-((SELECT id FROM productos WHERE sku='SAM-S24-U'), 'entrada', 80, 0, 80, 0, 0, 'Stock inicial'),
-((SELECT id FROM productos WHERE sku='SON-WH1000XM5'), 'entrada', 150, 0, 150, 0, 0, 'Stock inicial'),
-((SELECT id FROM productos WHERE sku='LG-OLED-65'), 'entrada', 30, 0, 30, 0, 0, 'Stock inicial'),
-((SELECT id FROM productos WHERE sku='ASU-ROG-G15'), 'entrada', 40, 0, 40, 0, 0, 'Stock inicial');
+INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, stock_fisico_anterior, stock_fisico_nuevo, stock_reservado_anterior, stock_reservado_nuevo, motivo)
+SELECT id, 'entrada', stock_fisico, 0, stock_fisico, 0, 0, 'Stock inicial masivo'
+FROM productos
+WHERE id NOT IN (SELECT DISTINCT producto_id FROM movimientos_inventario);
+
