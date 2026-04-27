@@ -1,12 +1,12 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import {
   AdminService,
-  DashboardKPIs,
   DashboardPeriodo,
   PedidosPorEstado,
   ProductoTop,
-  VentasPorPeriodo,
+  EstadisticasDashboard
 } from '../../../core/services/admin.service';
 import {
   AlertTriangle,
@@ -18,9 +18,17 @@ import {
   ShoppingBag,
   Sparkles,
   Users,
+  FileText,
+  PieChart as PieChartIcon
 } from 'lucide-angular';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { ToastService } from '../../../core/services/toast.service';
+import { BaseChartDirective } from 'ng2-charts';
+import { Chart, ChartConfiguration, ChartOptions } from 'chart.js';
+
+// Configurar colores globales para Chart.js en Dark Mode
+Chart.defaults.color = '#94A3B8';
+Chart.defaults.font.family = 'Inter, Helvetica, sans-serif';
 
 interface KpiCard {
   label: string;
@@ -32,11 +40,12 @@ interface KpiCard {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ButtonComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ButtonComponent, BaseChartDirective],
   template: `
     <div class="relative max-w-7xl mx-auto space-y-8 pb-10 text-text-primary admin-surface">
       <div class="admin-grid-glow" aria-hidden="true"></div>
 
+      <!-- Cabecera y selectores de periodo -->
       <section class="relative rounded-card border border-border-subtle bg-bg-surface/80 backdrop-blur-md p-6 md:p-8 overflow-hidden">
         <div class="absolute -right-24 -top-24 w-64 h-64 rounded-full admin-orb"></div>
         <div class="absolute inset-0 opacity-20 admin-noise"></div>
@@ -46,7 +55,7 @@ interface KpiCard {
             <p class="uppercase text-[11px] tracking-[0.25em] text-text-secondary">Control Center</p>
             <h1 class="text-3xl md:text-4xl font-black tracking-tight">Pulso Comercial</h1>
             <p class="text-text-secondary max-w-2xl">
-              Visualiza ventas, comportamiento de pedidos y productos que aceleran el ingreso en tiempo real.
+              Visualiza estadísticas unificadas en tiempo real.
             </p>
           </div>
 
@@ -64,22 +73,17 @@ interface KpiCard {
                 {{ option.label }}
               </button>
             </div>
-
-            <app-button variant="secondary" (onClick)="descargarReporte()" [disabled]="descargando()">
-              <span class="inline-flex items-center gap-2">
-                <lucide-icon [img]="Download" [size]="16"></lucide-icon>
-                {{ descargando() ? 'Generando...' : 'Descargar PDF' }}
-              </span>
-            </app-button>
           </div>
         </div>
       </section>
 
-      <section *ngIf="loadingOverview()" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <!-- Skeleton de Tarjetas -->
+      <section *ngIf="loadingEstadisticas()" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div *ngFor="let skeleton of [1,2,3,4]" class="h-32 rounded-card border border-border-subtle bg-bg-surface animate-pulse"></div>
       </section>
 
-      <section *ngIf="!loadingOverview()" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <!-- Tarjetas KPIs -->
+      <section *ngIf="!loadingEstadisticas()" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <article
           *ngFor="let card of cards(); let index = index"
           class="rounded-card border border-border-subtle bg-bg-surface/90 p-5 hover:-translate-y-1 transition-transform duration-300 animate-fade-up"
@@ -95,11 +99,48 @@ interface KpiCard {
         </article>
       </section>
 
+      <!-- Panel de Descarga de Reportes PDF -->
+      <section class="rounded-card border border-border-subtle bg-bg-surface/90 p-6 animate-fade-up" style="animation-delay: 200ms;">
+        <div class="flex items-center gap-2 mb-4">
+          <lucide-icon [img]="FileText" [size]="20" class="text-accent-primary"></lucide-icon>
+          <h2 class="text-lg font-black tracking-tight">Centro de Reportes PDF</h2>
+        </div>
+        
+        <div class="flex flex-col md:flex-row items-end gap-4">
+          <div class="flex-1 w-full flex flex-col sm:flex-row gap-4">
+            <div class="flex-1 space-y-1">
+              <label class="text-xs uppercase tracking-[0.1em] text-text-secondary">Fecha Inicio</label>
+              <input type="date" [(ngModel)]="fechaInicio" class="w-full bg-bg-main border border-border-subtle rounded-sm px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+            </div>
+            <div class="flex-1 space-y-1">
+              <label class="text-xs uppercase tracking-[0.1em] text-text-secondary">Fecha Fin</label>
+              <input type="date" [(ngModel)]="fechaFin" class="w-full bg-bg-main border border-border-subtle rounded-sm px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+            </div>
+          </div>
+          <div class="flex gap-3 w-full md:w-auto">
+            <app-button variant="secondary" (onClick)="descargarOperacional()" [disabled]="descargandoOperacional()" class="flex-1 md:flex-none">
+              <span class="inline-flex items-center justify-center gap-2">
+                <lucide-icon [img]="Download" [size]="16"></lucide-icon>
+                {{ descargandoOperacional() ? 'Generando...' : 'Reporte Operacional' }}
+              </span>
+            </app-button>
+            <app-button variant="primary" (onClick)="descargarGestion()" [disabled]="descargandoGestion()" class="flex-1 md:flex-none">
+              <span class="inline-flex items-center justify-center gap-2 text-black">
+                <lucide-icon [img]="Download" [size]="16"></lucide-icon>
+                {{ descargandoGestion() ? 'Generando...' : 'Reporte de Gestión' }}
+              </span>
+            </app-button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sección de Gráficos: Timeline de Ventas y Distribución por Categoría -->
       <section class="grid grid-cols-1 xl:grid-cols-5 gap-6 min-w-0">
-        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
+        <!-- Gráfico de Evolución de Ventas -->
+        <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0 animate-fade-up" style="animation-delay: 300ms;">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-xl font-black tracking-tight">Ventas por periodo</h2>
+              <h2 class="text-xl font-black tracking-tight">Evolución de Ingresos</h2>
               <p class="text-xs text-text-secondary uppercase tracking-[0.2em] mt-1">{{ activePeriodo() }}</p>
             </div>
             <span class="inline-flex items-center gap-2 text-xs text-text-secondary">
@@ -108,53 +149,54 @@ interface KpiCard {
             </span>
           </div>
 
-          <div *ngIf="loadingVentas()" class="h-72 rounded-card border border-border-subtle bg-bg-main animate-pulse"></div>
+          <div *ngIf="loadingEstadisticas()" class="h-72 rounded-card border border-border-subtle bg-bg-main animate-pulse"></div>
 
-          <div *ngIf="!loadingVentas() && ventasSeries().length > 0" class="h-72 flex items-end gap-2 md:gap-3">
-            <div *ngFor="let item of ventasBars()" class="h-full flex-1 flex flex-col justify-end group">
-              <div class="relative rounded-t-sm admin-sales-bar transition-transform duration-300 group-hover:-translate-y-1"
-                   [style.height.%]="item.height">
-                <span class="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] px-1.5 py-0.5 rounded-sm bg-bg-main border border-border-subtle opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  {{ item.total | currency:'PEN':'S/ ' }}
-                </span>
-              </div>
-              <p class="text-[10px] text-text-secondary mt-2 text-center truncate">{{ item.label }}</p>
-            </div>
+          <div *ngIf="!loadingEstadisticas() && ventasChartData().labels?.length" class="h-72 relative">
+            <canvas baseChart
+              [data]="ventasChartData()"
+              [options]="lineChartOptions"
+              type="line">
+            </canvas>
           </div>
 
-          <div *ngIf="!loadingVentas() && ventasSeries().length === 0" class="h-72 rounded-card border border-dashed border-border-subtle flex items-center justify-center text-text-secondary text-sm">
+          <div *ngIf="!loadingEstadisticas() && !ventasChartData().labels?.length" class="h-72 rounded-card border border-dashed border-border-subtle flex items-center justify-center text-text-secondary text-sm">
             Sin datos de ventas para este periodo.
           </div>
         </article>
 
-        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
-          <h2 class="text-xl font-black tracking-tight">Pedidos por estado</h2>
-          <p class="text-text-secondary text-sm mt-1">Distribucion operativa actual</p>
-
-          <div *ngIf="loadingEstados()" class="mt-6 h-72 rounded-card border border-border-subtle bg-bg-main animate-pulse"></div>
-
-          <div *ngIf="!loadingEstados()" class="mt-6 space-y-4">
-            <div *ngFor="let status of pedidosEstado()" class="space-y-1">
-              <div class="flex items-center justify-between text-sm">
-                <span class="capitalize">{{ normalizeEstado(status.estado) }}</span>
-                <span class="font-semibold">{{ status.cantidad }}</span>
-              </div>
-              <div class="h-2 rounded-pill bg-bg-main overflow-hidden border border-border-subtle">
-                <div class="h-full rounded-pill"
-                     [style.width.%]="getEstadoWidth(status.cantidad)"
-                     [ngClass]="getEstadoTone(status.estado)"></div>
-              </div>
+        <!-- Gráfico de Distribución por Categoría -->
+        <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0 animate-fade-up" style="animation-delay: 400ms;">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-xl font-black tracking-tight">Ingresos por Categoría</h2>
+              <p class="text-text-secondary text-sm mt-1">Distribución del valor de ventas</p>
             </div>
+            <lucide-icon [img]="PieChartIcon" [size]="18" class="text-accent-primary"></lucide-icon>
+          </div>
+
+          <div *ngIf="loadingEstadisticas()" class="h-72 rounded-card border border-border-subtle bg-bg-main animate-pulse"></div>
+
+          <div *ngIf="!loadingEstadisticas() && categoriaChartData().labels?.length" class="h-72 relative flex justify-center items-center">
+            <canvas baseChart
+              [data]="categoriaChartData()"
+              [options]="pieChartOptions"
+              type="doughnut">
+            </canvas>
+          </div>
+          
+          <div *ngIf="!loadingEstadisticas() && !categoriaChartData().labels?.length" class="h-72 rounded-card border border-dashed border-border-subtle flex items-center justify-center text-text-secondary text-sm">
+            Sin datos de categorías.
           </div>
         </article>
       </section>
 
+      <!-- Manteniendo las otras vistas del panel para no perder funcionalidad previa -->
       <section class="grid grid-cols-1 xl:grid-cols-5 gap-6 min-w-0">
         <article class="xl:col-span-3 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-black tracking-tight">Top productos</h2>
-              <p class="text-text-secondary text-sm mt-1">Mayor rotacion e ingresos</p>
+              <p class="text-text-secondary text-sm mt-1">Mayor rotación histórica</p>
             </div>
             <lucide-icon [img]="Package" [size]="18" class="text-accent-primary"></lucide-icon>
           </div>
@@ -181,43 +223,26 @@ interface KpiCard {
               </div>
             </div>
           </div>
-
-          <div *ngIf="!loadingTop() && topProductos().length === 0"
-               class="mt-5 rounded-card border border-dashed border-border-subtle px-4 py-8 text-center text-sm text-text-secondary">
-            Aun no hay productos destacados.
-          </div>
         </article>
 
         <article class="xl:col-span-2 rounded-card border border-border-subtle bg-bg-surface/90 p-6 min-w-0">
-          <h2 class="text-xl font-black tracking-tight">Riesgo de stock</h2>
-          <p class="text-text-secondary text-sm mt-1">Productos por debajo de umbral</p>
+          <h2 class="text-xl font-black tracking-tight">Pedidos por estado</h2>
+          <p class="text-text-secondary text-sm mt-1">Distribución operativa actual</p>
 
-          <div *ngIf="loadingStock()" class="mt-5 space-y-3">
-            <div *ngFor="let skeleton of [1,2,3,4,5]" class="h-14 rounded-sm border border-border-subtle bg-bg-main animate-pulse"></div>
-          </div>
+          <div *ngIf="loadingEstados()" class="mt-6 h-72 rounded-card border border-border-subtle bg-bg-main animate-pulse"></div>
 
-          <div *ngIf="!loadingStock() && bajoStock().length > 0" class="mt-5 space-y-3">
-            <div *ngFor="let item of bajoStock()" class="rounded-sm border border-border-subtle px-4 py-3 hover:border-amber-400/60 transition-colors">
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-semibold truncate">{{ item.nombre }}</p>
-                  <p class="text-xs text-text-secondary truncate">{{ item.sku }}</p>
-                </div>
-                <span class="inline-flex items-center gap-1 text-amber-400 text-xs">
-                  <lucide-icon [img]="AlertTriangle" [size]="13"></lucide-icon>
-                  Critico
-                </span>
+          <div *ngIf="!loadingEstados()" class="mt-6 space-y-4">
+            <div *ngFor="let status of pedidosEstado()" class="space-y-1">
+              <div class="flex items-center justify-between text-sm">
+                <span class="capitalize">{{ normalizeEstado(status.estado) }}</span>
+                <span class="font-semibold">{{ status.cantidad }}</span>
               </div>
-              <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-text-secondary">Disponible {{ item.stock_disponible }}</span>
-                <span class="text-text-secondary">Minimo {{ item.stock_minimo }}</span>
+              <div class="h-2 rounded-pill bg-bg-main overflow-hidden border border-border-subtle">
+                <div class="h-full rounded-pill"
+                     [style.width.%]="getEstadoWidth(status.cantidad)"
+                     [ngClass]="getEstadoTone(status.estado)"></div>
               </div>
             </div>
-          </div>
-
-          <div *ngIf="!loadingStock() && bajoStock().length === 0"
-               class="mt-5 rounded-card border border-dashed border-border-subtle px-4 py-8 text-center text-sm text-text-secondary">
-            Todo el inventario esta sobre su minimo.
           </div>
         </article>
       </section>
@@ -256,12 +281,6 @@ interface KpiCard {
       );
     }
 
-    .admin-sales-bar {
-      background: linear-gradient(180deg, rgba(223, 227, 29, 0.95), rgba(223, 227, 29, 0.25));
-      border: 1px solid rgba(223, 227, 29, 0.35);
-      box-shadow: inset 0 -22px 40px rgba(0, 0, 0, 0.2), 0 0 12px rgba(223, 227, 29, 0.18);
-    }
-
     .animate-fade-up {
       animation: fade-up 500ms ease-out both;
     }
@@ -290,78 +309,139 @@ export class DashboardComponent implements OnInit {
   readonly ArrowDownRight = ArrowDownRight;
   readonly ShoppingBag = ShoppingBag;
   readonly Users = Users;
+  readonly FileText = FileText;
+  readonly PieChartIcon = PieChartIcon;
 
   readonly periodOptions: { label: string; value: DashboardPeriodo }[] = [
-    { label: 'Dia', value: 'dia' },
+    { label: 'Día', value: 'dia' },
     { label: 'Semana', value: 'semana' },
     { label: 'Mes', value: 'mes' },
   ];
 
   readonly activePeriodo = signal<DashboardPeriodo>('mes');
 
-  readonly loadingOverview = signal(true);
-  readonly loadingVentas = signal(true);
+  readonly loadingEstadisticas = signal(true);
   readonly loadingTop = signal(true);
   readonly loadingEstados = signal(true);
-  readonly loadingStock = signal(true);
-  readonly descargando = signal(false);
+  
+  readonly descargandoOperacional = signal(false);
+  readonly descargandoGestion = signal(false);
 
-  readonly kpis = signal<DashboardKPIs | null>(null);
-  readonly ventasSeries = signal<VentasPorPeriodo[]>([]);
+  // Fecha para descargas
+  fechaInicio: string = this.getFirstDayOfMonth();
+  fechaFin: string = this.getToday();
+
+  readonly estadisticas = signal<EstadisticasDashboard | null>(null);
   readonly topProductos = signal<ProductoTop[]>([]);
   readonly pedidosEstado = signal<PedidosPorEstado[]>([]);
-  readonly bajoStock = signal<{
-    id: number;
-    sku: string;
-    nombre: string;
-    stock_disponible: number;
-    stock_minimo: number;
-  }[]>([]);
 
-  readonly cards = computed<KpiCard[]>(() => {
-    const k = this.kpis();
-
-    if (!k) {
-      return [];
+  // ── Opciones para Chart.js ──
+  public lineChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        titleColor: '#E2E8F0',
+        bodyColor: '#38BDF8',
+        borderColor: '#1E293B',
+        borderWidth: 1,
+      }
+    },
+    scales: {
+      x: { grid: { display: false, color: '#1E293B' } },
+      y: { grid: { color: 'rgba(30, 41, 59, 0.5)' }, border: { dash: [4, 4] }, beginAtZero: true }
     }
+  };
+
+  public pieChartOptions: ChartOptions<'doughnut'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, padding: 20 } },
+      tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: '#1E293B', borderWidth: 1 }
+    }
+  };
+
+  // ── Computed Properties ──
+  readonly cards = computed<KpiCard[]>(() => {
+    const data = this.estadisticas();
+    if (!data) return [];
 
     return [
       {
         label: 'Ventas totales',
-        value: this.toCurrency(k.ventas_totales),
-        trend: 'Flujo saludable',
+        value: this.toCurrency(data.metricas.ventas_totales),
+        trend: 'Flujo del periodo',
         tone: 'positive',
       },
       {
-        label: 'Pedidos',
-        value: `${k.total_pedidos}`,
-        trend: 'Operacion estable',
+        label: 'Pedidos Facturados',
+        value: `${data.metricas.total_pedidos}`,
+        trend: 'Operación activa',
         tone: 'neutral',
       },
       {
-        label: 'Ticket promedio',
-        value: this.toCurrency(k.ticket_promedio),
-        trend: 'Mayor valor por orden',
+        label: 'Ticket Promedio',
+        value: this.toCurrency(data.metricas.ticket_promedio),
+        trend: 'Ingreso por cliente',
         tone: 'positive',
       },
       {
-        label: 'Productos bajo stock',
-        value: `${k.productos_bajo_stock}`,
-        trend: k.productos_bajo_stock > 0 ? 'Atencion requerida' : 'Sin riesgo actual',
-        tone: k.productos_bajo_stock > 0 ? 'warning' : 'neutral',
+        label: 'Clientes Diferentes',
+        value: `${data.metricas.total_clientes}`,
+        trend: 'Base activa',
+        tone: 'neutral',
       },
     ];
   });
 
-  readonly ventasBars = computed(() => {
-    const series = [...this.ventasSeries()].reverse();
-    const max = Math.max(...series.map((item) => item.total), 1);
+  readonly ventasChartData = computed<ChartConfiguration<'line'>['data']>(() => {
+    const data = this.estadisticas()?.ventas_timeline || [];
+    return {
+      labels: data.map(d => this.formatPeriodoLabel(d.fecha)),
+      datasets: [
+        {
+          data: data.map(d => d.ingresos),
+          label: 'Ingresos (S/.)',
+          fill: true,
+          tension: 0.4,
+          borderColor: '#38BDF8', // Cyan
+          backgroundColor: 'rgba(56, 189, 248, 0.1)',
+          pointBackgroundColor: '#0F172A',
+          pointBorderColor: '#38BDF8',
+          pointHoverBackgroundColor: '#38BDF8',
+          pointHoverBorderColor: '#fff',
+        }
+      ]
+    };
+  });
 
-    return series.map((item) => ({
-      total: item.total,
-      label: this.formatPeriodoLabel(item.periodo),
-      height: Math.max((item.total / max) * 100, 8),
-    }));
+  readonly categoriaChartData = computed<ChartConfiguration<'doughnut'>['data']>(() => {
+    const data = this.estadisticas()?.ventas_por_categoria || [];
+    return {
+      labels: data.map(d => d.categoria),
+      datasets: [
+        {
+          data: data.map(d => d.ingresos),
+          backgroundColor: [
+            '#38BDF8', // Cyan
+            '#A78BFA', // Violet
+            '#10B981', // Emerald
+            '#F59E0B', // Amber
+            '#F43F5E', // Rose
+            '#6366F1'  // Indigo
+          ],
+          borderColor: '#0F172A',
+          borderWidth: 2,
+          hoverOffset: 4
+        }
+      ]
+    };
   });
 
   readonly totalEstados = computed(() =>
@@ -373,107 +453,88 @@ export class DashboardComponent implements OnInit {
   }
 
   cambiarPeriodo(periodo: DashboardPeriodo): void {
-    if (this.activePeriodo() === periodo) {
-      return;
-    }
-
+    if (this.activePeriodo() === periodo) return;
     this.activePeriodo.set(periodo);
-    this.loadVentas();
-  }
-
-  descargarReporte(): void {
-    this.descargando.set(true);
-
-    this.adminService.descargarReporteVentas().subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `reporte_ventas_${Date.now()}.pdf`;
-        anchor.click();
-        window.URL.revokeObjectURL(url);
-        this.descargando.set(false);
-        this.toast.success('Reporte PDF generado y descargado.');
-      },
-      error: () => {
-        this.descargando.set(false);
-      },
-    });
-  }
-
-  normalizeEstado(estado: string): string {
-    return estado.replace('_', ' ');
-  }
-
-  getEstadoWidth(cantidad: number): number {
-    const total = this.totalEstados();
-    if (!total) {
-      return 0;
-    }
-
-    return (cantidad / total) * 100;
-  }
-
-  getEstadoTone(estado: string): string {
-    switch (estado) {
-      case 'pendiente':
-        return 'bg-amber-400';
-      case 'pagado':
-        return 'bg-sky-400';
-      case 'en_preparacion':
-        return 'bg-violet-400';
-      case 'enviado':
-        return 'bg-blue-400';
-      case 'entregado':
-        return 'bg-emerald-400';
-      case 'cancelado':
-        return 'bg-rose-400';
-      default:
-        return 'bg-text-secondary';
-    }
+    this.loadEstadisticasUnificadas();
   }
 
   private loadDashboardData(): void {
-    this.loadOverview();
-    this.loadVentas();
+    this.loadEstadisticasUnificadas();
     this.loadTopProductos();
     this.loadPedidosEstado();
-    this.loadBajoStock();
   }
 
-  private loadOverview(): void {
-    this.loadingOverview.set(true);
-
-    this.adminService.getKpis().subscribe({
+  private loadEstadisticasUnificadas(): void {
+    this.loadingEstadisticas.set(true);
+    this.adminService.getEstadisticasDashboard(this.activePeriodo()).subscribe({
       next: (response) => {
-        this.kpis.set(response);
-        this.loadingOverview.set(false);
+        this.estadisticas.set(response);
+        this.loadingEstadisticas.set(false);
       },
       error: () => {
-        this.kpis.set(null);
-        this.loadingOverview.set(false);
+        this.estadisticas.set(null);
+        this.loadingEstadisticas.set(false);
       },
     });
   }
 
-  private loadVentas(): void {
-    this.loadingVentas.set(true);
-
-    this.adminService.getVentas(this.activePeriodo()).subscribe({
-      next: (response) => {
-        this.ventasSeries.set(response);
-        this.loadingVentas.set(false);
+  // ── Descarga de PDFs ──
+  
+  descargarOperacional(): void {
+    if (!this.fechaInicio || !this.fechaFin) {
+      this.toast.error('Debe seleccionar las fechas de inicio y fin.');
+      return;
+    }
+    
+    this.descargandoOperacional.set(true);
+    this.adminService.descargarReporteOperacional(this.fechaInicio, this.fechaFin).subscribe({
+      next: (blob) => {
+        this.triggerDownload(blob, `reporte_operacional_${this.fechaInicio}_${this.fechaFin}.pdf`);
+        this.descargandoOperacional.set(false);
+        this.toast.success('Reporte Operacional generado y descargado.');
       },
       error: () => {
-        this.ventasSeries.set([]);
-        this.loadingVentas.set(false);
+        this.descargandoOperacional.set(false);
+        this.toast.error('Error al generar el reporte operacional.');
       },
     });
   }
+
+  descargarGestion(): void {
+    if (!this.fechaInicio || !this.fechaFin) {
+      this.toast.error('Debe seleccionar las fechas de inicio y fin.');
+      return;
+    }
+
+    this.descargandoGestion.set(true);
+    this.adminService.descargarReporteGestion(this.fechaInicio, this.fechaFin).subscribe({
+      next: (blob) => {
+        this.triggerDownload(blob, `reporte_gestion_${this.fechaInicio}_${this.fechaFin}.pdf`);
+        this.descargandoGestion.set(false);
+        this.toast.success('Reporte de Gestión generado y descargado.');
+      },
+      error: () => {
+        this.descargandoGestion.set(false);
+        this.toast.error('Error al generar el reporte de gestión.');
+      },
+    });
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  }
+
+  // ── Helpers ──
 
   private loadTopProductos(): void {
     this.loadingTop.set(true);
-
     this.adminService.getProductosTop(5).subscribe({
       next: (response) => {
         this.topProductos.set(response);
@@ -488,7 +549,6 @@ export class DashboardComponent implements OnInit {
 
   private loadPedidosEstado(): void {
     this.loadingEstados.set(true);
-
     this.adminService.getPedidosPorEstado().subscribe({
       next: (response) => {
         this.pedidosEstado.set(response);
@@ -501,27 +561,6 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  private loadBajoStock(): void {
-    this.loadingStock.set(true);
-
-    this.adminService.getProductosBajoStock(1, 5).subscribe({
-      next: (response) => {
-        this.bajoStock.set(response.items.map((item) => ({
-          id: item.id,
-          sku: item.sku,
-          nombre: item.nombre,
-          stock_disponible: item.stock_disponible,
-          stock_minimo: item.stock_minimo,
-        }))); 
-        this.loadingStock.set(false);
-      },
-      error: () => {
-        this.bajoStock.set([]);
-        this.loadingStock.set(false);
-      },
-    });
-  }
-
   private toCurrency(value: number): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
@@ -530,21 +569,47 @@ export class DashboardComponent implements OnInit {
     }).format(value);
   }
 
-  private formatPeriodoLabel(periodo: string): string {
-    const date = new Date(periodo);
-    if (Number.isNaN(date.getTime())) {
-      return periodo;
-    }
+  private formatPeriodoLabel(fechaStr: string): string {
+    const date = new Date(fechaStr);
+    if (Number.isNaN(date.getTime())) return fechaStr;
 
     if (this.activePeriodo() === 'dia') {
       return new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(date);
     }
-
     if (this.activePeriodo() === 'semana') {
       return `Sem ${new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(date)}`;
     }
-
     return new Intl.DateTimeFormat('es-PE', { month: 'short', year: '2-digit' }).format(date);
   }
 
+  normalizeEstado(estado: string): string {
+    return estado.replace('_', ' ');
+  }
+
+  getEstadoWidth(cantidad: number): number {
+    const total = this.totalEstados();
+    return total ? (cantidad / total) * 100 : 0;
+  }
+
+  getEstadoTone(estado: string): string {
+    switch (estado) {
+      case 'pendiente': return 'bg-amber-400';
+      case 'pagado': return 'bg-sky-400';
+      case 'en_preparacion': return 'bg-violet-400';
+      case 'enviado': return 'bg-blue-400';
+      case 'entregado': return 'bg-emerald-400';
+      case 'cancelado': return 'bg-rose-400';
+      default: return 'bg-text-secondary';
+    }
+  }
+
+  private getFirstDayOfMonth(): string {
+    const date = new Date();
+    date.setDate(1);
+    return date.toISOString().split('T')[0];
+  }
+
+  private getToday(): string {
+    return new Date().toISOString().split('T')[0];
+  }
 }
