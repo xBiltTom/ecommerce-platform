@@ -1,7 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { 
   LucideAngularModule, 
   LayoutDashboard, 
@@ -157,8 +159,10 @@ import {
     }
   `]
 })
-export class AdminLayoutComponent {
-  private authService = inject(AuthService);
+export class AdminLayoutComponent implements OnInit {
+  private readonly adminService = inject(AdminService);
+  private readonly authService = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   isMobileMenuOpen = false;
 
@@ -173,6 +177,10 @@ export class AdminLayoutComponent {
   readonly Menu = Menu;
   readonly X = X;
 
+  ngOnInit(): void {
+    this.checkStockAlerts();
+  }
+
   toggleMobileMenu() {
     this.isMobileMenuOpen = !this.isMobileMenuOpen;
   }
@@ -183,5 +191,41 @@ export class AdminLayoutComponent {
 
   logout() {
     this.authService.logout();
+  }
+
+  private checkStockAlerts(): void {
+    this.adminService.getProductos({ page: 1, page_size: 1 }).subscribe({
+      next: (response) => {
+        const meta = response.meta ?? {};
+        const bajoStock = this.toCount(meta['bajo_stock']);
+        const agotados = this.toCount(meta['agotados']);
+
+        if (bajoStock <= 0 && agotados <= 0) {
+          return;
+        }
+
+        const message = this.buildStockAlertMessage(bajoStock, agotados);
+        this.toast.warning(message, 'Alerta de stock', 5200);
+      },
+    });
+  }
+
+  private buildStockAlertMessage(bajoStock: number, agotados: number): string {
+    const parts: string[] = [];
+
+    if (agotados > 0) {
+      parts.push(`${agotados} producto${agotados === 1 ? '' : 's'} sin stock`);
+    }
+
+    if (bajoStock > 0) {
+      parts.push(`${bajoStock} producto${bajoStock === 1 ? '' : 's'} con stock minimo`);
+    }
+
+    return `Hay ${parts.join(' y ')}. Reponer inventario recomendado.`;
+  }
+
+  private toCount(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 }
