@@ -391,3 +391,52 @@ CREATE INDEX idx_sesiones_expira_en ON sesiones_usuario(expira_en);
 
 CREATE INDEX idx_admin_auditoria_admin ON admin_auditoria(admin_usuario_id);
 CREATE INDEX idx_admin_auditoria_fecha ON admin_auditoria(fecha_creacion);
+
+-- ========================================
+-- DATOS INICIALES (SEMILLA)
+-- ========================================
+
+-- Insertar Categorías
+INSERT INTO categorias (nombre, slug, descripcion) VALUES
+('Laptops', 'laptops', 'Computadoras portátiles de alto rendimiento'),
+('Smartphones', 'smartphones', 'Teléfonos inteligentes de última generación'),
+('Televisores', 'televisores', 'Smart TVs y pantallas de alta resolución'),
+('Audio', 'audio', 'Audífonos, parlantes y equipos de sonido')
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insertar Marcas
+INSERT INTO marcas (nombre, slug) VALUES
+('Apple', 'apple'),
+('Samsung', 'samsung'),
+('Sony', 'sony'),
+('LG', 'lg'),
+('Asus', 'asus')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Insertar Productos
+INSERT INTO productos (sku, nombre, slug, descripcion, precio, stock_fisico, stock_reservado, stock_minimo, categoria_id, marca_id) VALUES
+('APP-MBP-14', 'MacBook Pro 14"', 'macbook-pro-14', 'Chip M3 Pro, 16GB RAM, 512GB SSD', 1999.00, 50, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='apple')),
+('APP-IPH-15P', 'iPhone 15 Pro', 'iphone-15-pro', 'Titanio, A17 Pro, 256GB', 1099.00, 100, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='apple')),
+('SAM-S24-U', 'Samsung Galaxy S24 Ultra', 'samsung-galaxy-s24-ultra', 'Snapdragon 8 Gen 3, 256GB, 12GB RAM', 1299.00, 80, 0, 10, (SELECT id FROM categorias WHERE slug='smartphones'), (SELECT id FROM marcas WHERE slug='samsung')),
+('SON-WH1000XM5', 'Sony WH-1000XM5', 'sony-wh-1000xm5', 'Audífonos inalámbricos con cancelación de ruido', 349.00, 150, 0, 20, (SELECT id FROM categorias WHERE slug='audio'), (SELECT id FROM marcas WHERE slug='sony')),
+('LG-OLED-65', 'LG OLED TV 65" C3', 'lg-oled-tv-65-c3', 'Smart TV 4K UHD, 120Hz', 1599.00, 30, 0, 5, (SELECT id FROM categorias WHERE slug='televisores'), (SELECT id FROM marcas WHERE slug='lg')),
+('ASU-ROG-G15', 'Asus ROG Strix G15', 'asus-rog-strix-g15', 'Ryzen 9, RTX 4070, 16GB RAM, 1TB SSD', 1499.00, 40, 0, 5, (SELECT id FROM categorias WHERE slug='laptops'), (SELECT id FROM marcas WHERE slug='asus'))
+ON CONFLICT (sku) DO NOTHING;
+
+-- Insertar Especificaciones
+INSERT INTO productos_especificaciones (producto_id, clave, valor) VALUES
+((SELECT id FROM productos WHERE sku='APP-MBP-14'), 'Procesador', 'M3 Pro'),
+((SELECT id FROM productos WHERE sku='APP-MBP-14'), 'RAM', '16GB Unified'),
+((SELECT id FROM productos WHERE sku='APP-IPH-15P'), 'Capacidad', '256GB'),
+((SELECT id FROM productos WHERE sku='SAM-S24-U'), 'Cámara', '200MP'),
+((SELECT id FROM productos WHERE sku='SON-WH1000XM5'), 'Batería', '30 horas')
+ON CONFLICT (producto_id, clave) DO NOTHING;
+
+-- Insertar Movimientos de Inventario (Entrada inicial)
+INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, stock_fisico_anterior, stock_fisico_nuevo, stock_reservado_anterior, stock_reservado_nuevo, motivo) VALUES
+((SELECT id FROM productos WHERE sku='APP-MBP-14'), 'entrada', 50, 0, 50, 0, 0, 'Stock inicial'),
+((SELECT id FROM productos WHERE sku='APP-IPH-15P'), 'entrada', 100, 0, 100, 0, 0, 'Stock inicial'),
+((SELECT id FROM productos WHERE sku='SAM-S24-U'), 'entrada', 80, 0, 80, 0, 0, 'Stock inicial'),
+((SELECT id FROM productos WHERE sku='SON-WH1000XM5'), 'entrada', 150, 0, 150, 0, 0, 'Stock inicial'),
+((SELECT id FROM productos WHERE sku='LG-OLED-65'), 'entrada', 30, 0, 30, 0, 0, 'Stock inicial'),
+((SELECT id FROM productos WHERE sku='ASU-ROG-G15'), 'entrada', 40, 0, 40, 0, 0, 'Stock inicial');
