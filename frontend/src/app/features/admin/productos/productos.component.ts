@@ -13,6 +13,7 @@ import {
   Boxes,
   Check,
   Edit3,
+  Eye,
   Loader,
   LucideAngularModule,
   Plus,
@@ -296,8 +297,26 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 
           <label class="space-y-1.5 text-sm block">
             <span class="text-text-secondary">URL de Imagen (Opcional)</span>
-            <input formControlName="imagen_url" type="url" placeholder="https://..." class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
+            <input
+              formControlName="imagen_url"
+              type="url"
+              placeholder="https://..."
+              class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary"
+              (input)="onImageUrlInput()"
+            />
           </label>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-accent-primary/40 text-accent-primary text-xs font-semibold uppercase tracking-[0.12em] hover:bg-accent-primary/10 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+              [disabled]="!hasImageUrl()"
+              (click)="abrirPreviewModal()"
+            >
+              <lucide-icon [img]="Eye" [size]="12"></lucide-icon>
+              Ver imagen
+            </button>
+            <p class="text-xs text-text-secondary">Se mostrará en un modal y se ajustará automáticamente al tamaño de la vista.</p>
+          </div>
 
           <!-- Especificaciones Técnicas -->
           <div class="space-y-3">
@@ -361,6 +380,55 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
       </section>
     </div>
 
+    <div
+      class="fixed inset-0 z-[65] flex items-center justify-center p-4 transition-opacity duration-300 ease-out"
+      [class.opacity-100]="previewModalOpen()"
+      [class.opacity-0]="!previewModalOpen()"
+      [class.pointer-events-auto]="previewModalOpen()"
+      [class.pointer-events-none]="!previewModalOpen()"
+      (click)="cerrarPreviewModal()"
+    >
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+
+      <section
+        class="relative w-full max-w-lg rounded-card border border-border-subtle bg-bg-surface p-5 md:p-6 shadow-2xl transition-all duration-300 ease-out"
+        [class.opacity-100]="previewModalOpen()"
+        [class.opacity-0]="!previewModalOpen()"
+        [class.translate-y-0]="previewModalOpen()"
+        [class.translate-y-3]="!previewModalOpen()"
+        [class.scale-100]="previewModalOpen()"
+        [class.scale-95]="!previewModalOpen()"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs uppercase tracking-[0.22em] text-text-secondary">Previsualizacion</p>
+            <h3 class="text-xl font-black mt-1">Imagen del producto</h3>
+          </div>
+          <button
+            type="button"
+            class="p-2 rounded-sm border border-border-subtle hover:border-accent-primary/50 cursor-pointer"
+            (click)="cerrarPreviewModal()"
+          >
+            <lucide-icon [img]="X" [size]="14"></lucide-icon>
+          </button>
+        </div>
+
+        <div class="mt-4 h-[420px] w-full overflow-hidden rounded-sm border border-border-subtle bg-bg-main/70 flex items-center justify-center">
+          <img
+            [src]="getPreviewImageUrl()"
+            alt="Previsualizacion de imagen del producto"
+            class="h-full w-full object-contain"
+            (error)="onPreviewImageError()"
+          />
+        </div>
+
+        <p *ngIf="imagePreviewError()" class="mt-2 text-xs text-amber-300">
+          No se pudo cargar la imagen del enlace. Se muestra una imagen de referencia.
+        </p>
+      </section>
+    </div>
+
     <!-- Confirm Delete Modal -->
     <div *ngIf="showDeleteConfirm()" class="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" (click)="cancelarDesactivacion()"></div>
@@ -400,6 +468,7 @@ export class AdminProductosComponent implements OnInit {
   readonly Plus = Plus;
   readonly Boxes = Boxes;
   readonly Edit3 = Edit3;
+  readonly Eye = Eye;
   readonly Trash2 = Trash2;
   readonly X = X;
   readonly Check = Check;
@@ -423,6 +492,7 @@ export class AdminProductosComponent implements OnInit {
   readonly bajoStockCount = signal(0);
 
   readonly modalOpen = signal(false);
+  readonly previewModalOpen = signal(false);
   readonly editMode = signal(false);
   readonly editingProductId = signal<number | null>(null);
   readonly formError = signal('');
@@ -434,6 +504,8 @@ export class AdminProductosComponent implements OnInit {
   readonly categoriaFilter = signal<string>('');
   readonly marcaFilter = signal<string>('');
   readonly estadoFilter = signal<string>('');
+  readonly imagePreviewError = signal(false);
+  private readonly imagePreviewPlaceholder = 'https://placehold.co/600x400/1E293B/38BDF8?text=PREVIEW';
 
   // Lista dinámica de especificaciones, fuera del FormGroup
   readonly especificaciones = signal<EspecificacionProducto[]>([]);
@@ -509,6 +581,8 @@ export class AdminProductosComponent implements OnInit {
     this.editingProductId.set(null);
     this.formError.set('');
     this.especificaciones.set([]);
+    this.imagePreviewError.set(false);
+    this.previewModalOpen.set(false);
     this.productForm.reset({
       sku: '',
       nombre: '',
@@ -550,6 +624,8 @@ export class AdminProductosComponent implements OnInit {
 
     this.adminService.getProductoDetalle(product.slug).subscribe({
       next: (detail) => {
+        this.imagePreviewError.set(false);
+        this.previewModalOpen.set(false);
         this.productForm.reset({
           sku: detail.sku,
           nombre: detail.nombre,
@@ -577,8 +653,43 @@ export class AdminProductosComponent implements OnInit {
       return;
     }
     this.modalOpen.set(false);
+    this.previewModalOpen.set(false);
     this.formError.set('');
     this.especificaciones.set([]);
+    this.imagePreviewError.set(false);
+  }
+
+  onImageUrlInput(): void {
+    this.imagePreviewError.set(false);
+    if (!this.hasImageUrl()) {
+      this.previewModalOpen.set(false);
+    }
+  }
+
+  abrirPreviewModal(): void {
+    if (!this.hasImageUrl()) {
+      return;
+    }
+    this.previewModalOpen.set(true);
+  }
+
+  cerrarPreviewModal(): void {
+    this.previewModalOpen.set(false);
+  }
+
+  hasImageUrl(): boolean {
+    return !!this.productForm.controls.imagen_url.value?.trim();
+  }
+
+  onPreviewImageError(): void {
+    this.imagePreviewError.set(true);
+  }
+
+  getPreviewImageUrl(): string {
+    if (this.imagePreviewError()) {
+      return this.imagePreviewPlaceholder;
+    }
+    return this.productForm.controls.imagen_url.value?.trim() || this.imagePreviewPlaceholder;
   }
 
   guardarProducto(): void {
@@ -606,6 +717,7 @@ export class AdminProductosComponent implements OnInit {
         next: () => {
           this.saving.set(false);
           this.modalOpen.set(false);
+          this.previewModalOpen.set(false);
           this.toast.success('Producto actualizado correctamente.');
           this.cargarProductos();
         },
@@ -633,6 +745,7 @@ export class AdminProductosComponent implements OnInit {
       next: () => {
         this.saving.set(false);
         this.modalOpen.set(false);
+        this.previewModalOpen.set(false);
         this.toast.success('Producto creado correctamente.');
         this.cargarProductos();
       },
