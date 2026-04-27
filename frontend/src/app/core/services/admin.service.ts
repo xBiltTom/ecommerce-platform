@@ -8,6 +8,7 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
   total_pages: number;
+  meta?: Record<string, any>;
 }
 
 export type DashboardPeriodo = 'dia' | 'semana' | 'mes';
@@ -121,6 +122,7 @@ export interface AdminProductoList {
   precio: number;
   precio_oferta?: number | null;
   stock_disponible: number;
+  stock_minimo: number;
   categoria_nombre?: string | null;
   marca_nombre?: string | null;
   imagen_url?: string | null;
@@ -162,6 +164,7 @@ export interface ProductoUpdatePayload {
   descripcion?: string;
   precio?: number;
   precio_oferta?: number | null;
+  stock_fisico?: number;
   stock_minimo?: number;
   categoria_id?: number | null;
   marca_id?: number | null;

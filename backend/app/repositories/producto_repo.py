@@ -51,9 +51,24 @@ class ProductoRepository:
         activo: bool | None = None,
         en_oferta: bool | None = None,
         orden: str = "reciente",
-    ) -> tuple[list[Producto], int]:
+    ) -> tuple[list[Producto], int, dict]:
         query = select(Producto)
         count_query = select(func.count()).select_from(Producto)
+
+        # Múltiples counts para estadísticas del panel superior
+        from sqlalchemy import case
+        stats_query = select(
+            func.sum(case((Producto.activo == True, 1), else_=0)).label("activos"),
+            func.sum(case(((Producto.stock_fisico - Producto.stock_reservado) <= 0, 1), else_=0)).label("agotados"),
+            func.sum(case(
+                (
+                    ((Producto.stock_fisico - Producto.stock_reservado) > 0) & 
+                    ((Producto.stock_fisico - Producto.stock_reservado) <= Producto.stock_minimo), 
+                    1
+                ), 
+                else_=0
+            )).label("bajo_stock")
+        ).select_from(Producto)
 
         filters = []
         if activo is not None:
@@ -80,8 +95,18 @@ class ProductoRepository:
         for f in filters:
             query = query.where(f)
             count_query = count_query.where(f)
+            stats_query = stats_query.where(f)
 
         total = (await self.db.execute(count_query)).scalar() or 0
+
+        stats_result = await self.db.execute(stats_query)
+        stats_row = stats_result.fetchone()
+        
+        meta = {
+            "activos": int(stats_row.activos or 0) if stats_row else 0,
+            "agotados": int(stats_row.agotados or 0) if stats_row else 0,
+            "bajo_stock": int(stats_row.bajo_stock or 0) if stats_row else 0,
+        }
 
         # Ordenamiento
         order_map = {
@@ -96,7 +121,7 @@ class ProductoRepository:
         query = query.offset((page - 1) * page_size).limit(page_size)
 
         result = await self.db.execute(query)
-        return list(result.scalars().all()), total
+        return list(result.scalars().all()), total, meta
 
     async def count_activos(self) -> int:
         result = await self.db.execute(

@@ -45,6 +45,7 @@ def _build_list_response(p) -> dict:
         "precio": float(p.precio),
         "precio_oferta": float(p.precio_oferta) if p.precio_oferta else None,
         "stock_disponible": p.stock_fisico - p.stock_reservado,
+        "stock_minimo": p.stock_minimo,
         "categoria_nombre": p.categoria.nombre if p.categoria else None,
         "marca_nombre": p.marca.nombre if p.marca else None,
         "imagen_url": p.imagen_url, "activo": p.activo,
@@ -74,7 +75,7 @@ async def list_productos(
         solo_activos = (activo is not None)
 
     service = ProductoService(db)
-    items, total = await service.list_all(
+    items, total, meta = await service.list_all(
         page=page, page_size=page_size, categoria_id=categoria_id,
         marca_id=marca_id, precio_min=precio_min, precio_max=precio_max,
         buscar=buscar, orden=orden, solo_activos=solo_activos, activo=activo,
@@ -84,6 +85,7 @@ async def list_productos(
         items=[ProductoListResponse(**_build_list_response(p)) for p in items],
         total=total, page=page, page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 0,
+        meta=meta
     )
 
 

@@ -39,7 +39,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             </p>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 min-w-[260px]">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-[320px]">
             <div class="rounded-sm border border-border-subtle bg-bg-main/60 px-3 py-2">
               <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Total</p>
               <p class="text-xl font-black mt-1">{{ total() }}</p>
@@ -49,7 +49,11 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
               <p class="text-xl font-black mt-1 text-emerald-400">{{ activosCount() }}</p>
             </div>
             <div class="rounded-sm border border-border-subtle bg-bg-main/60 px-3 py-2">
-              <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Sin stock</p>
+              <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Bajo stock</p>
+              <p class="text-xl font-black mt-1 text-amber-400">{{ bajoStockCount() }}</p>
+            </div>
+            <div class="rounded-sm border border-border-subtle bg-bg-main/60 px-3 py-2">
+              <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Agotados</p>
               <p class="text-xl font-black mt-1 text-rose-400">{{ sinStockCount() }}</p>
             </div>
           </div>
@@ -155,7 +159,11 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
                 </td>
 
                 <td class="px-4 py-3">
-                  <span [ngClass]="product.stock_disponible > 0 ? 'text-emerald-400' : 'text-rose-400'" class="font-semibold">
+                  <span [ngClass]="{
+                    'text-cyan-400': product.stock_disponible > product.stock_minimo,
+                    'text-amber-400': product.stock_disponible > 0 && product.stock_disponible <= product.stock_minimo,
+                    'text-rose-400': product.stock_disponible <= 0
+                  }" class="font-semibold">
                     {{ product.stock_disponible }}
                   </span>
                 </td>
@@ -246,7 +254,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             <textarea formControlName="descripcion" rows="3" class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary resize-none"></textarea>
           </label>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <label class="space-y-1.5 text-sm">
               <span class="text-text-secondary">Precio</span>
               <input formControlName="precio" type="number" min="0" step="0.01" class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
@@ -255,6 +263,11 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
             <label class="space-y-1.5 text-sm">
               <span class="text-text-secondary">Precio oferta</span>
               <input formControlName="precio_oferta" type="number" min="0" step="0.01" class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
+            </label>
+
+            <label class="space-y-1.5 text-sm">
+              <span class="text-text-secondary">Stock Físico</span>
+              <input formControlName="stock_fisico" type="number" min="0" class="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded-sm focus:outline-none focus:border-accent-primary" />
             </label>
 
             <label class="space-y-1.5 text-sm">
@@ -407,6 +420,7 @@ export class AdminProductosComponent implements OnInit {
 
   readonly activosCount = signal(0);
   readonly sinStockCount = signal(0);
+  readonly bajoStockCount = signal(0);
 
   readonly modalOpen = signal(false);
   readonly editMode = signal(false);
@@ -430,6 +444,7 @@ export class AdminProductosComponent implements OnInit {
     descripcion: [''],
     precio: [0, [Validators.required, Validators.min(0)]],
     precio_oferta: [null as number | null],
+    stock_fisico: [0, [Validators.required, Validators.min(0)]],
     stock_minimo: [0, [Validators.required, Validators.min(0)]],
     categoria_id: [null as number | null],
     marca_id: [null as number | null],
@@ -500,6 +515,7 @@ export class AdminProductosComponent implements OnInit {
       descripcion: '',
       precio: 0,
       precio_oferta: null,
+      stock_fisico: 0,
       stock_minimo: 0,
       categoria_id: null,
       marca_id: null,
@@ -540,6 +556,7 @@ export class AdminProductosComponent implements OnInit {
           descripcion: detail.descripcion ?? '',
           precio: detail.precio,
           precio_oferta: detail.precio_oferta ?? null,
+          stock_fisico: detail.stock_fisico,
           stock_minimo: detail.stock_minimo,
           categoria_id: detail.categoria_id ?? null,
           marca_id: detail.marca_id ?? null,
@@ -609,7 +626,7 @@ export class AdminProductosComponent implements OnInit {
       stock_minimo: payload.stock_minimo,
       categoria_id: payload.categoria_id,
       marca_id: payload.marca_id,
-      stock_fisico: 0,
+      stock_fisico: payload.stock_fisico,
     };
 
     this.adminService.createProducto(createPayload).subscribe({
@@ -699,6 +716,7 @@ export class AdminProductosComponent implements OnInit {
         this.totalPages.set(0);
         this.activosCount.set(0);
         this.sinStockCount.set(0);
+        this.bajoStockCount.set(0);
         this.loading.set(false);
       },
     });
@@ -711,9 +729,16 @@ export class AdminProductosComponent implements OnInit {
     this.total.set(response.total);
     this.totalPages.set(response.total_pages);
 
-    const list = response.items;
-    this.activosCount.set(list.filter((item) => item.activo).length);
-    this.sinStockCount.set(list.filter((item) => item.stock_disponible <= 0).length);
+    if (response.meta) {
+      this.activosCount.set(response.meta['activos'] || 0);
+      this.sinStockCount.set(response.meta['agotados'] || 0);
+      this.bajoStockCount.set(response.meta['bajo_stock'] || 0);
+    } else {
+      const list = response.items;
+      this.activosCount.set(list.filter((item) => item.activo).length);
+      this.sinStockCount.set(list.filter((item) => item.stock_disponible <= 0).length);
+      this.bajoStockCount.set(list.filter((item) => item.stock_disponible > 0 && item.stock_disponible <= item.stock_minimo).length);
+    }
   }
 
   private loadMetadata(): void {
@@ -765,6 +790,7 @@ export class AdminProductosComponent implements OnInit {
       descripcion: String(value.descripcion ?? '').trim(),
       precio: Number(value.precio ?? 0),
       precio_oferta: precioOferta,
+      stock_fisico: Number(value.stock_fisico ?? 0),
       stock_minimo: Number(value.stock_minimo ?? 0),
       categoria_id: value.categoria_id ?? null,
       marca_id: value.marca_id ?? null,

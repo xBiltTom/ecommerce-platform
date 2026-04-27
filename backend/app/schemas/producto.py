@@ -31,6 +31,7 @@ class ProductoUpdateRequest(BaseModel):
     descripcion: str | None = None
     precio: float | None = Field(None, ge=0)
     precio_oferta: float | None = Field(None, ge=0)
+    stock_fisico: int | None = Field(None, ge=0)
     stock_minimo: int | None = Field(None, ge=0)
     categoria_id: int | None = None
     marca_id: int | None = None
@@ -72,6 +73,7 @@ class ProductoListResponse(BaseModel):
     precio: float
     precio_oferta: float | None = None
     stock_disponible: int
+    stock_minimo: int
     categoria_nombre: str | None = None
     marca_nombre: str | None = None
     imagen_url: str | None = None
