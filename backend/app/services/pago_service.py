@@ -19,6 +19,7 @@ from app.repositories.pedido_repo import PedidoRepository
 
 class PagoService:
     GATEWAY_NAME = "Stripe"
+    IGV_DIVISOR = Decimal("1.18")
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -72,19 +73,7 @@ class PagoService:
                     "business_name": self.business_name,
                 },
             },
-            line_items=[
-                {
-                    "price_data": {
-                        "currency": "pen",
-                        "product_data": {
-                            "name": f"{self.business_name} | Pedido #{pedido.id[:8].upper()}",
-                            "description": self._build_description(pedido, nombre_cliente),
-                        },
-                        "unit_amount": monto_total,
-                    },
-                    "quantity": 1,
-                }
-            ],
+            line_items=self._build_line_items(pedido, nombre_cliente, monto_total),
         )
 
         pago = await self.pago_repo.create(
@@ -196,6 +185,104 @@ class PagoService:
         decimal_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return int(decimal_amount * 100)
 
+    def _to_stripe_amount_decimal(self, amount: Decimal) -> str:
+        decimal_amount = amount.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+        return format(decimal_amount * 100, "f")
+
+    def _build_line_items(self, pedido, nombre_cliente: str | None, monto_total: int) -> list[dict]:
+        items = list(pedido.items or [])
+        if not items:
+            return [
+                {
+                    "price_data": {
+                        "currency": "pen",
+                        "product_data": {
+                            "name": f"{self.business_name} | Pedido #{pedido.id[:8].upper()}",
+                            "description": self._build_description(pedido, nombre_cliente),
+                        },
+                        "unit_amount": monto_total,
+                    },
+                    "quantity": 1,
+                }
+            ]
+
+        subtotales = [Decimal(str(item.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for item in items]
+        descuento_total = Decimal(str(getattr(pedido, "descuento", 0) or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        descuentos = self._distribuir_descuento(subtotales, descuento_total)
+
+        line_items: list[dict] = []
+        igv_total = Decimal("0.00")
+
+        for item, descuento_item in zip(items, descuentos):
+            subtotal = Decimal(str(item.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total_con_descuento = (subtotal - descuento_item).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if total_con_descuento < Decimal("0.00"):
+                total_con_descuento = Decimal("0.00")
+
+            base_imponible = (total_con_descuento / self.IGV_DIVISOR).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            igv_item = (total_con_descuento - base_imponible).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            igv_total += igv_item
+
+            cantidad = max(int(item.cantidad), 1)
+            unit_amount_decimal = self._to_stripe_amount_decimal(base_imponible / Decimal(cantidad))
+
+            line_items.append(
+                {
+                    "price_data": {
+                        "currency": "pen",
+                        "product_data": {
+                            "name": item.nombre_producto,
+                            "description": self._build_item_description(item, descuento_item, nombre_cliente),
+                        },
+                        "unit_amount_decimal": unit_amount_decimal,
+                    },
+                    "quantity": cantidad,
+                }
+            )
+
+        if igv_total > Decimal("0.00"):
+            line_items.append(
+                {
+                    "price_data": {
+                        "currency": "pen",
+                        "product_data": {
+                            "name": "IGV (18%)",
+                            "description": f"Impuesto incluido para {self.business_name} en modo prueba.",
+                        },
+                        "unit_amount": self._to_stripe_amount(float(igv_total)),
+                    },
+                    "quantity": 1,
+                }
+            )
+
+        return line_items
+
+    def _distribuir_descuento(self, subtotales: list[Decimal], descuento_total: Decimal) -> list[Decimal]:
+        if not subtotales or descuento_total <= Decimal("0.00"):
+            return [Decimal("0.00") for _ in subtotales]
+
+        total_subtotal = sum(subtotales, Decimal("0.00"))
+        if total_subtotal <= Decimal("0.00"):
+            return [Decimal("0.00") for _ in subtotales]
+
+        descuentos: list[Decimal] = []
+        acumulado = Decimal("0.00")
+
+        for index, subtotal in enumerate(subtotales):
+            if index == len(subtotales) - 1:
+                descuento_item = (descuento_total - acumulado).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            else:
+                proporcion = subtotal / total_subtotal
+                descuento_item = (descuento_total * proporcion).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                acumulado += descuento_item
+
+            if descuento_item > subtotal:
+                descuento_item = subtotal
+
+            descuentos.append(descuento_item)
+
+        return descuentos
+
     def _build_description(self, pedido, nombre_cliente: str | None) -> str:
         total_items = sum(item.cantidad for item in (pedido.items or []))
         partes = [f"{total_items} artículo(s)"]
@@ -203,6 +290,14 @@ class PagoService:
             partes.append(f"cliente: {nombre_cliente}")
         partes.append("total final con descuentos aplicados")
         return " · ".join(partes) + "."
+
+    def _build_item_description(self, item, descuento_item: Decimal, nombre_cliente: str | None) -> str:
+        partes = [f"SKU: {item.sku_producto}"]
+        if descuento_item > Decimal("0.00"):
+            partes.append(f"descuento aplicado: S/ {descuento_item:.2f}")
+        if nombre_cliente:
+            partes.append(f"cliente: {nombre_cliente}")
+        return " · ".join(partes)
 
     def _build_customer_name(self, usuario) -> str | None:
         if not usuario:
