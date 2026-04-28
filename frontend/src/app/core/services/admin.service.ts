@@ -84,6 +84,7 @@ export interface CuponDescuento {
   valor: number;
   fecha_expiracion: string;
   usado: boolean;
+  activo: boolean;
   pedido_id: string | null;
   fecha_uso: string | null;
   creado_por: string;
@@ -91,6 +92,13 @@ export interface CuponDescuento {
 }
 
 export interface CuponCreatePayload {
+  codigo: string;
+  tipo_descuento: 'porcentaje' | 'monto_fijo';
+  valor: number;
+  dias_expiracion: number;
+}
+
+export interface CuponUpdatePayload {
   codigo: string;
   tipo_descuento: 'porcentaje' | 'monto_fijo';
   valor: number;
@@ -407,6 +415,14 @@ export class AdminService {
 
   createCupon(payload: CuponCreatePayload): Observable<CuponDescuento> {
     return this.http.post<CuponDescuento>(`${this.ADMIN_URL}/cupones`, payload);
+  }
+
+  updateCupon(cuponId: string, payload: CuponUpdatePayload): Observable<CuponDescuento> {
+    return this.http.put<CuponDescuento>(`${this.ADMIN_URL}/cupones/${cuponId}`, payload);
+  }
+
+  updateCuponEstado(cuponId: string, activo: boolean): Observable<CuponDescuento> {
+    return this.http.put<CuponDescuento>(`${this.ADMIN_URL}/cupones/${cuponId}/estado`, { activo });
   }
 
   // Reporte PDF

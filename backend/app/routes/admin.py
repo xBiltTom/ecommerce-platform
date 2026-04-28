@@ -25,7 +25,7 @@ from app.services.pedido_service import PedidoService
 from app.services.inventario_service import InventarioService
 from app.services.pdf_service import PDFService
 from app.services.cupon_service import CuponService
-from app.schemas.cupon import CuponCreateRequest, CuponResponse
+from app.schemas.cupon import CuponCreateRequest, CuponUpdateRequest, CuponEstadoRequest, CuponResponse
 
 router = APIRouter(prefix="/admin", tags=["Administración"])
 
@@ -352,3 +352,49 @@ async def list_cupones(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 0,
     )
+
+
+@router.put("/cupones/{cupon_id}", response_model=CuponResponse)
+async def update_cupon(
+    cupon_id: str,
+    body: CuponUpdateRequest,
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = CuponService(db)
+    cupon = await service.editar_cupon(
+        cupon_id=cupon_id,
+        codigo=body.codigo,
+        tipo_descuento=body.tipo_descuento,
+        valor=body.valor,
+        dias_expiracion=body.dias_expiracion,
+    )
+    admin_service = AdminService(db)
+    await admin_service.log_action(
+        admin_id=admin.id,
+        entidad="cupon_descuento",
+        entidad_id=str(cupon.id),
+        accion="editar",
+        detalle={"codigo": cupon.codigo, "tipo": cupon.tipo_descuento, "valor": float(cupon.valor)},
+    )
+    return CuponResponse.model_validate(cupon)
+
+
+@router.put("/cupones/{cupon_id}/estado", response_model=CuponResponse)
+async def update_cupon_estado(
+    cupon_id: str,
+    body: CuponEstadoRequest,
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = CuponService(db)
+    cupon = await service.cambiar_estado_cupon(cupon_id, body.activo)
+    admin_service = AdminService(db)
+    await admin_service.log_action(
+        admin_id=admin.id,
+        entidad="cupon_descuento",
+        entidad_id=str(cupon.id),
+        accion="cambiar_estado",
+        detalle={"activo": cupon.activo, "codigo": cupon.codigo},
+    )
+    return CuponResponse.model_validate(cupon)

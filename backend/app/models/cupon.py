@@ -27,6 +27,7 @@ class CuponDescuento(Base):
         sa.DateTime(timezone=True), nullable=False
     )
     usado: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    activo: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
     pedido_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), nullable=True
     )

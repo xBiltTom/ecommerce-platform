@@ -7,9 +7,8 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import BadRequestException, NotFoundException, ForbiddenException
+from app.exceptions import BadRequestException, NotFoundException
 from app.models.cupon import CuponDescuento
-from app.models.pedido import Pedido
 from app.repositories.cupon_repo import CuponRepository
 from app.repositories.pedido_repo import PedidoRepository
 
@@ -21,6 +20,12 @@ class CuponService:
         self.cupon_repo = CuponRepository(db)
         self.pedido_repo = PedidoRepository(db)
 
+    def _validar_valor_descuento(self, tipo_descuento: str, valor: float) -> None:
+        if tipo_descuento == "porcentaje" and (valor <= 0 or valor > 100):
+            raise BadRequestException("El descuento porcentual debe estar entre 0 y 100")
+        if tipo_descuento == "monto_fijo" and valor <= 0:
+            raise BadRequestException("El monto fijo debe ser mayor a 0")
+
     async def crear_cupon(
         self,
         codigo: str,
@@ -29,7 +34,8 @@ class CuponService:
         dias_expiracion: int,
         admin_id: str,
     ) -> CuponDescuento:
-        # Validar que no exista código duplicado
+        self._validar_valor_descuento(tipo_descuento, valor)
+
         existente = await self.cupon_repo.get_by_codigo(codigo)
         if existente:
             raise BadRequestException("Ya existe un cupón con ese código")
@@ -43,6 +49,48 @@ class CuponService:
             fecha_expiracion=fecha_expiracion,
             creado_por=admin_id,
         )
+
+    async def editar_cupon(
+        self,
+        cupon_id: str,
+        codigo: str,
+        tipo_descuento: str,
+        valor: float,
+        dias_expiracion: int,
+    ) -> CuponDescuento:
+        cupon = await self.cupon_repo.get_by_id(cupon_id)
+        if not cupon:
+            raise NotFoundException("Cupón no encontrado")
+
+        if cupon.usado:
+            raise BadRequestException("No se puede editar un cupón que ya fue utilizado")
+
+        self._validar_valor_descuento(tipo_descuento, valor)
+
+        codigo_limpio = codigo.strip().upper()
+        existente = await self.cupon_repo.get_by_codigo(codigo_limpio)
+        if existente and existente.id != cupon_id:
+            raise BadRequestException("Ya existe un cupón con ese código")
+
+        fecha_expiracion = datetime.now(timezone.utc) + timedelta(days=dias_expiracion)
+
+        return await self.cupon_repo.update(
+            cupon,
+            codigo=codigo_limpio,
+            tipo_descuento=tipo_descuento,
+            valor=Decimal(str(valor)),
+            fecha_expiracion=fecha_expiracion,
+        )
+
+    async def cambiar_estado_cupon(self, cupon_id: str, activo: bool) -> CuponDescuento:
+        cupon = await self.cupon_repo.get_by_id(cupon_id)
+        if not cupon:
+            raise NotFoundException("Cupón no encontrado")
+
+        if cupon.usado and not activo:
+            return cupon
+
+        return await self.cupon_repo.update(cupon, activo=activo)
 
     async def listar_cupones(self, page: int = 1, page_size: int = 20):
         return await self.cupon_repo.list_all(page, page_size)
@@ -73,6 +121,9 @@ class CuponService:
         cupon = await self.cupon_repo.get_by_codigo_for_update(codigo)
         if not cupon:
             raise BadRequestException("Código de descuento no válido")
+
+        if not cupon.activo:
+            raise BadRequestException("El cupón está inactivo")
 
         if cupon.usado:
             raise BadRequestException("El cupón ya ha sido utilizado")

@@ -173,6 +173,7 @@ CREATE TABLE cupones_descuento (
     valor NUMERIC(10,2) NOT NULL CHECK (valor > 0),
     fecha_expiracion TIMESTAMPTZ NOT NULL,
     usado BOOLEAN NOT NULL DEFAULT FALSE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
     fecha_uso TIMESTAMPTZ,
     pedido_id UUID,
     creado_por UUID NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
