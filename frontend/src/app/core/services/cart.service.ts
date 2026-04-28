@@ -18,6 +18,7 @@ interface BackendCartItem {
   producto_id: number;
   producto_nombre?: string | null;
   producto_imagen?: string | null;
+  producto_stock_disponible?: number | null;
   cantidad: number;
   precio_unitario: number;
   subtotal: number;
@@ -92,18 +93,35 @@ export class CartService {
   }
 
   public addToCart(producto: ProductData, cantidad: number = 1): void {
+    const availableStock = this.getAvailableStock(producto);
+    if (availableStock !== null && availableStock <= 0) {
+      this.toast.warning('Este producto está agotado.', 'Carrito');
+      return;
+    }
+
     if (this.isAuthenticatedCustomer()) {
-      this.cartItemsSignal.update((items) => this.mergeLocalCartItem(items, producto, cantidad));
+      const result = this.mergeLocalCartItem(this.cartItemsSignal(), producto, cantidad);
+      if (!result.updated) {
+        this.toast.warning(result.message, 'Carrito');
+        return;
+      }
+
+      this.cartItemsSignal.set(result.items);
       this.scheduleAuthenticatedSync();
       this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
       return;
     }
 
     this.cartItemsSignal.update((items) => {
-      const updatedItems = this.mergeLocalCartItem(items, producto, cantidad);
-      this.saveGuestToLocalStorage(updatedItems);
+      const result = this.mergeLocalCartItem(items, producto, cantidad);
+      if (!result.updated) {
+        this.toast.warning(result.message, 'Carrito');
+        return items;
+      }
+
+      this.saveGuestToLocalStorage(result.items);
       this.toast.success(`Se agregó "${producto.nombre}" al carrito.`, 'Carrito');
-      return updatedItems;
+      return result.items;
     });
   }
 
@@ -132,10 +150,14 @@ export class CartService {
     if (this.isAuthenticatedCustomer()) {
       this.cartItemsSignal.update((items) => items.map((item) => {
         if (item.producto.id === productoId) {
+          const allowed = this.clampToStock(item.producto, cantidad, item.cantidad);
+          if (allowed !== cantidad) {
+            this.toast.warning('Stock insuficiente para esa cantidad.', 'Carrito');
+          }
           return {
             ...item,
-            cantidad,
-            subtotal: this.calculateSubtotal(item.producto, cantidad),
+            cantidad: allowed,
+            subtotal: this.calculateSubtotal(item.producto, allowed),
           };
         }
         return item;
@@ -147,10 +169,14 @@ export class CartService {
     this.cartItemsSignal.update((items) => {
       const updatedItems = items.map((item) => {
         if (item.producto.id === productoId) {
+          const allowed = this.clampToStock(item.producto, cantidad, item.cantidad);
+          if (allowed !== cantidad) {
+            this.toast.warning('Stock insuficiente para esa cantidad.', 'Carrito');
+          }
           return {
             ...item,
-            cantidad,
-            subtotal: this.calculateSubtotal(item.producto, cantidad),
+            cantidad: allowed,
+            subtotal: this.calculateSubtotal(item.producto, allowed),
           };
         }
         return item;
@@ -453,6 +479,10 @@ export class CartService {
         nombre: item.producto_nombre || `Producto #${item.producto_id}`,
         precio: Number(item.precio_unitario),
         imagen_url: item.producto_imagen ?? undefined,
+        stock_disponible:
+          typeof item.producto_stock_disponible === 'number'
+            ? item.producto_stock_disponible
+            : undefined,
       },
       cantidad: item.cantidad,
       subtotal: Number(item.subtotal),
@@ -461,22 +491,46 @@ export class CartService {
     this.cartItemsSignal.set(mappedItems);
   }
 
-  private mergeLocalCartItem(items: CartItem[], producto: ProductData, cantidad: number): CartItem[] {
+  private mergeLocalCartItem(
+    items: CartItem[],
+    producto: ProductData,
+    cantidad: number
+  ): { items: CartItem[]; updated: boolean; message: string } {
     const existingItemIndex = items.findIndex((item) => item.producto.id === producto.id);
+    const availableStock = this.getAvailableStock(producto);
     if (existingItemIndex === -1) {
-      return [
-        ...items,
-        {
-          producto,
-          cantidad,
-          subtotal: this.calculateSubtotal(producto, cantidad),
-        },
-      ];
+      if (availableStock !== null && cantidad > availableStock) {
+        return {
+          items,
+          updated: false,
+          message: `Stock insuficiente. Disponible: ${availableStock}`,
+        };
+      }
+      return {
+        items: [
+          ...items,
+          {
+            producto,
+            cantidad,
+            subtotal: this.calculateSubtotal(producto, cantidad),
+          },
+        ],
+        updated: true,
+        message: '',
+      };
     }
 
     const updatedItems = [...items];
     const existingItem = updatedItems[existingItemIndex];
     const nextCantidad = existingItem.cantidad + cantidad;
+    const resolvedStock = this.getAvailableStock(producto, existingItem.producto);
+    if (resolvedStock !== null && nextCantidad > resolvedStock) {
+      return {
+        items,
+        updated: false,
+        message: `Stock insuficiente. Disponible: ${resolvedStock}`,
+      };
+    }
     updatedItems[existingItemIndex] = {
       ...existingItem,
       producto: {
@@ -489,7 +543,31 @@ export class CartService {
         ...producto,
       }, nextCantidad),
     };
-    return updatedItems;
+    return { items: updatedItems, updated: true, message: '' };
+  }
+
+  private getAvailableStock(producto: ProductData, fallback?: ProductData): number | null {
+    if (typeof producto.stock_disponible === 'number') {
+      return producto.stock_disponible;
+    }
+    if (fallback && typeof fallback.stock_disponible === 'number') {
+      return fallback.stock_disponible;
+    }
+    return null;
+  }
+
+  private clampToStock(producto: ProductData, desired: number, current: number): number {
+    const availableStock = this.getAvailableStock(producto);
+    if (availableStock === null) {
+      return desired;
+    }
+    if (desired <= current) {
+      return desired;
+    }
+    if (availableStock <= current) {
+      return current;
+    }
+    return Math.min(desired, availableStock);
   }
 
   private calculateSubtotal(producto: ProductData, cantidad: number): number {

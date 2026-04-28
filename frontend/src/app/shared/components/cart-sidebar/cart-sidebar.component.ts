@@ -87,7 +87,8 @@ import { RouterModule, Router } from '@angular/router';
                 <span class="w-8 text-center text-sm font-medium text-text-primary">{{ item.cantidad }}</span>
                 <button 
                   (click)="cartService.updateQuantity(item.producto.id, item.cantidad + 1)"
-                  class="p-1 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 cursor-pointer"
+                  class="p-1 text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
+                  [disabled]="item.producto.stock_disponible != null && item.cantidad >= item.producto.stock_disponible"
                 >
                   <lucide-icon [img]="Plus" [size]="14"></lucide-icon>
                 </button>

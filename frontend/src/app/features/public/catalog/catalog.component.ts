@@ -358,6 +358,11 @@ export class CatalogComponent implements OnInit, OnDestroy {
   }
 
   addToCart(product: ProductData) {
+    if (typeof product.stock_disponible === 'number' && product.stock_disponible <= 0) {
+      this.toast.warning('Este producto está agotado.', 'Carrito');
+      return;
+    }
+
     this.cartService.addToCart(product, 1);
   }
 

@@ -27,6 +27,11 @@ def _build_cart_response(carrito) -> dict:
             producto_nombre=item.producto.nombre if item.producto else None,
             producto_sku=item.producto.sku if item.producto else None,
             producto_imagen=item.producto.imagen_url if item.producto else None,
+            producto_stock_disponible=(
+                item.producto.stock_fisico - item.producto.stock_reservado
+                if item.producto
+                else None
+            ),
             cantidad=item.cantidad,
             precio_unitario=float(item.precio_unitario),
             subtotal=subtotal,

@@ -22,6 +22,7 @@ class CarritoItemResponse(BaseModel):
     producto_nombre: str | None = None
     producto_sku: str | None = None
     producto_imagen: str | None = None
+    producto_stock_disponible: int | None = None
     cantidad: int
     precio_unitario: float
     subtotal: float

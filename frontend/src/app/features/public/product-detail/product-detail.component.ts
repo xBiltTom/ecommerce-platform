@@ -261,7 +261,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
 
   addToCart() {
     const p = this.product();
-    if (p) {
+    if (p && p.stock_disponible > 0) {
       const cartItem = {
         id: p.id,
         nombre: p.nombre,
@@ -269,8 +269,11 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
         precio_oferta: p.precio_oferta ?? undefined,
         imagen_url: p.imagen_url ?? undefined,
         categoria_nombre: p.categoria_nombre ?? undefined,
+        stock_disponible: p.stock_disponible,
       };
       this.cartService.addToCart(cartItem, this.quantity());
+    } else if (p) {
+      this.toast.warning('Este producto está agotado.', 'Carrito');
     }
   }
 }

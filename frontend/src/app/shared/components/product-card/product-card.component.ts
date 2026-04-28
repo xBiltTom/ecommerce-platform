@@ -79,9 +79,10 @@ export interface ProductData {
           </div>
           
           <button 
-            class="p-2.5 rounded-full border border-border-subtle bg-transparent text-text-primary group-hover:bg-accent-primary group-hover:text-text-inverse group-hover:border-accent-primary transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-primary"
+            class="p-2.5 rounded-full border border-border-subtle bg-transparent text-text-primary group-hover:bg-accent-primary group-hover:text-text-inverse group-hover:border-accent-primary transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:group-hover:bg-transparent disabled:group-hover:text-text-primary"
             (click)="onAddToCart.emit(product); $event.stopPropagation()"
             aria-label="Add to cart"
+            [disabled]="isOutOfStock(product)"
           >
             <lucide-icon [img]="ShoppingCart" [size]="18"></lucide-icon>
           </button>
