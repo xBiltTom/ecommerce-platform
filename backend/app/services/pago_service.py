@@ -272,7 +272,7 @@ class PagoService:
 
             product_data = {
                 "name": item.nombre_producto,
-                "description": self._build_item_description(item, descuento_item, nombre_cliente),
+                "description": self._build_item_description(item, descuento_item),
             }
             imagen_url = self._get_product_image_url(item)
             if imagen_url:
@@ -335,17 +335,13 @@ class PagoService:
     def _build_description(self, pedido, nombre_cliente: str | None) -> str:
         total_items = sum(item.cantidad for item in (pedido.items or []))
         partes = [f"{total_items} artículo(s)"]
-        if nombre_cliente:
-            partes.append(f"cliente: {nombre_cliente}")
         partes.append("total final con descuentos aplicados")
         return " · ".join(partes) + "."
 
-    def _build_item_description(self, item, descuento_item: Decimal, nombre_cliente: str | None) -> str:
+    def _build_item_description(self, item, descuento_item: Decimal) -> str:
         partes = [f"SKU: {item.sku_producto}"]
         if descuento_item > Decimal("0.00"):
             partes.append(f"descuento aplicado: S/ {descuento_item:.2f}")
-        if nombre_cliente:
-            partes.append(f"cliente: {nombre_cliente}")
         return " · ".join(partes)
 
     def _build_customer_name(self, usuario) -> str | None:
