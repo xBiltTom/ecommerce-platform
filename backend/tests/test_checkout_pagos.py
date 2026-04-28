@@ -1,5 +1,5 @@
 """
-Tests del flujo de checkout con pago sandbox.
+Tests del flujo de checkout previo a Stripe.
 """
 
 import time
@@ -13,7 +13,7 @@ def unique_name(prefix: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_checkout_crea_pago_sandbox_persistido(
+async def test_checkout_crea_pedido_pendiente_para_stripe(
     client: AsyncClient,
     admin_headers: dict,
     client_headers: dict,
@@ -77,23 +77,14 @@ async def test_checkout_crea_pago_sandbox_persistido(
         json={
             "direccion_id": direccion.json()["id"],
             "metodo_pago": "tarjeta",
-            "pago_simulado": {
-                "titular": "TEST USER",
-                "numero_tarjeta": "4242 4242 4242 4242",
-                "vencimiento": "12/30",
-                "cvv": "123",
-                "documento": "44556677",
-            },
         },
         headers=client_headers,
     )
     assert checkout.status_code == 201, checkout.text
     pedido = checkout.json()
 
-    assert pedido["estado"] == "pagado"
-    assert pedido["pago"]["estado"] == "pagado"
-    assert pedido["pago"]["pasarela"] == "Protech Sandbox Gateway"
-    assert pedido["pago"]["referencia_externa"].startswith("SIM-TAR-")
+    assert pedido["estado"] == "pendiente"
+    assert pedido["pago"] is None
 
     pagos = await client.get(
         f"/api/v1/pedidos/{pedido['id']}/pagos",
@@ -101,6 +92,4 @@ async def test_checkout_crea_pago_sandbox_persistido(
     )
     assert pagos.status_code == 200, pagos.text
     pagos_body = pagos.json()
-    assert len(pagos_body) >= 1
-    assert pagos_body[0]["pedido_id"] == pedido["id"]
-    assert pagos_body[0]["estado"] == "pagado"
+    assert pagos_body == []

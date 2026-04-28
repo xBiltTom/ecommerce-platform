@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── Stripe ─────────────────────────────────────────────
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_BUSINESS_NAME: str = "Ecommerce Platform"
+    STRIPE_CHECKOUT_LOCALE: str = "es"
+
     # ── Uploads ────────────────────────────────────────────
     UPLOAD_DIR: str = "static/uploads/productos"
     ALLOWED_IMAGE_EXTENSIONS: set[str] = {"jpg", "jpeg", "png", "webp"}

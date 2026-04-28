@@ -8,20 +8,19 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class PagoSimuladoRequest(BaseModel):
-    titular: str | None = Field(None, max_length=120)
-    numero_tarjeta: str | None = Field(None, max_length=32)
-    vencimiento: str | None = Field(None, max_length=7)
-    cvv: str | None = Field(None, max_length=4)
-    email_pagador: str | None = Field(None, max_length=150)
-    banco: str | None = Field(None, max_length=80)
-    documento: str | None = Field(None, max_length=20)
+class StripeCheckoutRequest(BaseModel):
+    success_url: str = Field(..., max_length=500)
+    cancel_url: str = Field(..., max_length=500)
 
 
-class PagoCreateRequest(BaseModel):
-    metodo: str = Field(..., pattern="^(tarjeta|transferencia|efectivo|paypal|otro)$")
-    referencia_externa: str | None = Field(None, max_length=150)
-    simulacion: PagoSimuladoRequest | None = None
+class StripeCheckoutResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+    pedido_id: str
+
+
+class PagoConfirmacionRequest(BaseModel):
+    stripe_session_id: str = Field(..., max_length=255)
 
 
 class PagoResponse(BaseModel):

@@ -16,7 +16,6 @@ from app.schemas.pedido import (
 )
 from app.schemas.common import PaginatedResponse, MessageResponse
 from app.services.pedido_service import PedidoService
-from app.services.pago_service import PagoService
 from app.services.cupon_service import CuponService
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
@@ -60,17 +59,9 @@ async def checkout(
             pedido.id, body.cupon_codigo, current_user.id
         )
 
-    pago_service = PagoService(db)
-    pago = await pago_service.create_pago(
-        pedido.id,
-        current_user.id,
-        body.metodo_pago,
-        simulacion=body.pago_simulado.model_dump(exclude_none=True) if body.pago_simulado else None,
-    )
-
-    # Refrescar pedido para obtener estado actualizado
+    # Refrescar pedido para obtener descuento aplicado
     pedido = await pedido_service.get_detail(pedido.id)
-    return PedidoResponse(**_build_response(pedido, pago_service.build_gateway_response(pago)))
+    return PedidoResponse(**_build_response(pedido))
 
 
 @router.get("", response_model=PaginatedResponse[PedidoListResponse])

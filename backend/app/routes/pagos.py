@@ -8,35 +8,52 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.usuario import Usuario
-from app.schemas.pago import PagoCreateRequest, PagoResponse
+from app.schemas.pago import (
+    PagoConfirmacionRequest,
+    PagoGatewayResponse,
+    StripeCheckoutRequest,
+    StripeCheckoutResponse,
+)
 from app.services.pago_service import PagoService
 
 router = APIRouter(prefix="/pedidos", tags=["Pagos"])
 
 
-@router.post("/{pedido_id}/pagar", response_model=PagoResponse)
-async def pagar_pedido(
+@router.post("/{pedido_id}/stripe/checkout", response_model=StripeCheckoutResponse)
+async def create_stripe_checkout(
     pedido_id: str,
-    body: PagoCreateRequest,
+    body: StripeCheckoutRequest,
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = PagoService(db)
-    pago = await service.create_pago(
+    result = await service.create_checkout_session(
         pedido_id,
         current_user.id,
-        body.metodo,
-        body.referencia_externa,
-        body.simulacion.model_dump(exclude_none=True) if body.simulacion else None,
+        body.success_url,
+        body.cancel_url,
     )
-    return PagoResponse.model_validate(pago)
+    return StripeCheckoutResponse.model_validate(result)
 
 
-@router.get("/{pedido_id}/pagos", response_model=list[PagoResponse])
+@router.post("/{pedido_id}/stripe/confirmar", response_model=PagoGatewayResponse)
+async def confirm_stripe_payment(
+    pedido_id: str,
+    body: PagoConfirmacionRequest,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = PagoService(db)
+    pago = await service.confirm_payment(pedido_id, current_user.id, body.stripe_session_id)
+    return PagoGatewayResponse.model_validate(service.build_gateway_response(pago))
+
+
+@router.get("/{pedido_id}/pagos", response_model=list[PagoGatewayResponse])
 async def list_pagos(
     pedido_id: str,
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = PagoService(db)
-    return await service.list_by_pedido(pedido_id)
+    pagos = await service.list_by_pedido(pedido_id)
+    return [PagoGatewayResponse.model_validate(service.build_gateway_response(pago)) for pago in pagos]

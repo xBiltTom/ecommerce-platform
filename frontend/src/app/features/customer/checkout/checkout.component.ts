@@ -1,16 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import {
   BadgeCheck,
-  Building2,
   CheckCircle,
   CreditCard,
   LoaderCircle,
   LucideAngularModule,
   MapPin,
-  Package,
   ShieldCheck,
   WalletCards,
 } from 'lucide-angular';
@@ -18,8 +16,9 @@ import { CartService } from '../../../core/services/cart.service';
 import {
   CheckoutService,
   Direccion,
-  PagoSimuladoPayload,
+  PagoResumen,
   PedidoDetalle,
+  StripeCheckoutResponse,
 } from '../../../core/services/checkout.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
@@ -35,15 +34,15 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div class="mb-10">
         <h1 class="text-3xl font-bold text-text-primary tracking-tight">Finalizar Compra</h1>
-        <p class="text-text-secondary">Confirma tu pedido y procesa el pago desde la pasarela sandbox.</p>
+        <p class="text-text-secondary">Confirma tu pedido y completa el pago desde Stripe Checkout.</p>
       </div>
 
       <section *ngIf="pedidoExitoso() && pedidoConfirmado() as pedido" class="max-w-3xl mx-auto rounded-card border border-emerald-400/35 bg-[radial-gradient(circle_at_top,#224733,transparent_46%),linear-gradient(135deg,#0b1512,#101d16)] p-8 text-white shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
         <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">
-          <lucide-icon [img]="BadgeCheck" [size]="16"></lucide-icon> Pago sandbox aprobado
+          <lucide-icon [img]="BadgeCheck" [size]="16"></lucide-icon> Pago confirmado con Stripe
         </div>
         <h2 class="mt-6 text-3xl font-black tracking-tight">Pedido confirmado y pago registrado</h2>
-        <p class="mt-3 text-sm text-emerald-50/80">La simulación terminó correctamente y el pago quedó guardado en la base de datos.</p>
+        <p class="mt-3 text-sm text-emerald-50/80">Stripe confirmó la transacción y el pago quedó registrado en la base de datos.</p>
         <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Pedido</p>
@@ -54,8 +53,8 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
           </div>
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Referencia</p>
-            <p class="mt-2 text-lg font-bold break-all">{{ pedido.pago?.referencia_externa || 'SIM-PENDING' }}</p>
-            <p class="mt-2 text-sm text-emerald-50/75">{{ pedido.pago?.pasarela || 'Protech Sandbox Gateway' }}</p>
+            <p class="mt-2 text-lg font-bold break-all">{{ pedido.pago?.referencia_externa || 'STRIPE-PENDING' }}</p>
+            <p class="mt-2 text-sm text-emerald-50/75">{{ pedido.pago?.pasarela || 'Stripe Checkout' }}</p>
           </div>
         </div>
         <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -63,7 +62,7 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-[11px] uppercase tracking-[0.18em] text-emerald-100/70">Autorización</p><p class="mt-2 font-semibold">{{ pedido.pago?.codigo_autorizacion || 'Aprobado' }}</p></div>
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-[11px] uppercase tracking-[0.18em] text-emerald-100/70">Estado</p><p class="mt-2 font-semibold capitalize">{{ pedido.pago?.estado || pedido.estado }}</p></div>
         </div>
-        <div class="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-emerald-50/80">{{ pedido.pago?.resumen || 'La transacción de prueba fue capturada correctamente.' }}</div>
+        <div class="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-emerald-50/80">{{ pedido.pago?.resumen || 'La transacción fue capturada correctamente por Stripe Checkout.' }}</div>
         <div class="mt-8 flex flex-col sm:flex-row gap-4">
           <app-button variant="primary" routerLink="/">Volver al catálogo</app-button>
           <app-button variant="secondary" routerLink="/mi-perfil">Ver mi pedido</app-button>
@@ -105,59 +104,28 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
             <div class="relative">
               <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
                 <div>
-                  <h3 class="text-xl font-bold text-text-primary flex items-center gap-2"><lucide-icon [img]="WalletCards" [size]="20" class="text-accent-primary"></lucide-icon> Pasarela Sandbox</h3>
-                  <p class="text-text-secondary text-sm mt-2">No se moverá dinero real, pero el pago sí se registrará en la base de datos.</p>
+                  <h3 class="text-xl font-bold text-text-primary flex items-center gap-2"><lucide-icon [img]="WalletCards" [size]="20" class="text-accent-primary"></lucide-icon> Stripe Checkout</h3>
+                  <p class="text-text-secondary text-sm mt-2">Serás redirigido a Stripe Checkout en modo prueba para completar el pago.</p>
                 </div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300"><lucide-icon [img]="ShieldCheck" [size]="14"></lucide-icon> Entorno de prueba</div>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <button type="button" (click)="selectMetodoPago('tarjeta')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'tarjeta' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="CreditCard" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">Tarjeta</p><p class="text-xs text-text-secondary mt-1">Captura instantánea</p></button>
-                <button type="button" (click)="selectMetodoPago('paypal')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'paypal' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="Package" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">PayPal</p><p class="text-xs text-text-secondary mt-1">Aprobación inmediata</p></button>
-                <button type="button" (click)="selectMetodoPago('transferencia')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'transferencia' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="Building2" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">Transferencia</p><p class="text-xs text-text-secondary mt-1">Validación bancaria</p></button>
+              <div class="grid grid-cols-1 gap-4 mb-6">
+                <button type="button" (click)="selectMetodoPago('tarjeta')" class="rounded-2xl border p-4 text-left transition-all duration-200" [ngClass]="metodoPago() === 'tarjeta' ? 'border-accent-primary bg-accent-primary/10 shadow-[0_12px_28px_rgba(223,227,29,0.08)]' : 'border-border-subtle hover:border-text-secondary bg-bg-main/40'"><lucide-icon [img]="CreditCard" [size]="22" class="mb-3 text-accent-primary"></lucide-icon><p class="font-semibold text-text-primary">Tarjeta con Stripe</p><p class="text-xs text-text-secondary mt-1">Checkout seguro y validado por Stripe</p></button>
               </div>
 
-              <div class="rounded-3xl border border-border-subtle bg-bg-main/65 p-5 space-y-5">
-                <div class="flex flex-wrap items-center gap-3 text-xs">
-                  <span class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-surface px-3 py-1 uppercase tracking-[0.2em] text-text-secondary"><span class="h-2 w-2 rounded-full" [ngClass]="paymentStageDot()"></span>{{ paymentStageLabel() }}</span>
-                  <span class="text-text-secondary">Pasarela: Protech Sandbox Gateway</span>
-                </div>
-
-                <div *ngIf="metodoPago() === 'tarjeta'" class="space-y-4">
-                  <div class="rounded-3xl border border-white/5 bg-[linear-gradient(135deg,#111827,#1f2937_60%,#0f172a)] p-5 text-white shadow-xl">
-                    <p class="text-[11px] uppercase tracking-[0.24em] text-white/55">Tarjeta de prueba</p>
-                    <p class="mt-6 text-2xl font-black tracking-[0.24em]">{{ cardNumber() }}</p>
-                    <div class="mt-6 flex items-end justify-between gap-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Titular</p><p class="mt-1 font-semibold">{{ cardHolder() || 'TEST USER' }}</p></div><div class="text-right"><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Vence</p><p class="mt-1 font-semibold">{{ cardExpiry() || '12/30' }}</p></div></div>
-                  </div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label class="block"><span class="text-sm font-medium text-text-primary">Titular</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardHolder()" (ngModelChange)="cardHolder.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="TEST USER"></label>
-                    <label class="block"><span class="text-sm font-medium text-text-primary">Número</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardNumber()" (ngModelChange)="cardNumber.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="4242 4242 4242 4242"></label>
-                  </div>
-                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <label class="block"><span class="text-sm font-medium text-text-primary">Vencimiento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardExpiry()" (ngModelChange)="cardExpiry.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="12/30"></label>
-                    <label class="block"><span class="text-sm font-medium text-text-primary">CVV</span><input type="password" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="cardCvv()" (ngModelChange)="cardCvv.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="123"></label>
-                    <label class="block col-span-2 sm:col-span-1"><span class="text-sm font-medium text-text-primary">Documento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="payerDocument()" (ngModelChange)="payerDocument.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="44556677"></label>
-                  </div>
-                </div>
-
-                <div *ngIf="metodoPago() === 'paypal'" class="space-y-4">
-                  <div class="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5"><p class="text-xs uppercase tracking-[0.22em] text-sky-300">Sandbox Wallet</p><p class="mt-2 text-lg font-bold text-text-primary">Conexión segura con cuenta de prueba</p><p class="mt-2 text-sm text-text-secondary">La aprobación es inmediata y genera una referencia estilo PayPal sandbox.</p></div>
-                  <label class="block"><span class="text-sm font-medium text-text-primary">Correo del pagador</span><input type="email" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="paypalEmail()" (ngModelChange)="paypalEmail.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="cliente@sandbox.test"></label>
-                </div>
-
-                <div *ngIf="metodoPago() === 'transferencia'" class="space-y-4">
-                  <div class="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5"><p class="text-xs uppercase tracking-[0.22em] text-amber-300">Transfer Sandbox</p><p class="mt-2 text-lg font-bold text-text-primary">Validación bancaria de laboratorio</p><p class="mt-2 text-sm text-text-secondary">Registra banco y documento para una aprobación automática de prueba.</p></div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label class="block"><span class="text-sm font-medium text-text-primary">Banco</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="bankName()" (ngModelChange)="bankName.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="Banco Sandbox"></label>
-                    <label class="block"><span class="text-sm font-medium text-text-primary">Documento</span><input type="text" class="mt-2 w-full rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary" [ngModel]="payerDocument()" (ngModelChange)="payerDocument.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="44556677"></label>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-text-secondary">
-                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">1. Tokenización local</div>
-                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">2. Autorización sandbox</div>
-                  <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">3. Registro en BD</div>
-                </div>
+              <div class="rounded-3xl border border-white/5 bg-[linear-gradient(135deg,#111827,#1f2937_60%,#0f172a)] p-5 text-white shadow-xl">
+                <p class="text-[11px] uppercase tracking-[0.24em] text-white/55">Stripe Checkout</p>
+                <p class="mt-6 text-2xl font-black tracking-[0.2em]">4242 4242 4242 4242</p>
+                <div class="mt-6 flex items-end justify-between gap-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Titular</p><p class="mt-1 font-semibold">TEST USER</p></div><div class="text-right"><p class="text-[10px] uppercase tracking-[0.2em] text-white/45">Vence</p><p class="mt-1 font-semibold">12/34</p></div></div>
+              </div>
+              <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-4 text-sm text-text-secondary">
+                Stripe solicitará los datos de prueba dentro de su formulario seguro. El monto enviado será el total final del pedido, incluyendo cualquier descuento aplicado previamente.
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-text-secondary mt-6">
+                <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">1. Crear pedido</div>
+                <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">2. Redirigir a Stripe</div>
+                <div class="rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3">3. Confirmar pago</div>
               </div>
             </div>
           </section>
@@ -203,7 +171,7 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
             </div>
             <div *ngIf="errorMessage()" class="text-red-400 text-sm bg-red-500/10 p-3 rounded-sm border border-red-500/30">{{ errorMessage() }}</div>
             <app-button variant="primary" [fullWidth]="true" size="lg" (onClick)="procesarOrden()" [disabled]="loading() || !direccionSeleccionada() || !metodoPago() || cartService.items().length === 0">
-              {{ loading() ? 'Procesando pago sandbox...' : 'Confirmar y pagar' }}
+              {{ loading() ? 'Preparando Stripe Checkout...' : 'Continuar con Stripe' }}
             </app-button>
           </div>
         </aside>
@@ -217,15 +185,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private checkoutService = inject(CheckoutService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private toast = inject(ToastService);
 
   readonly CreditCard = CreditCard;
   readonly MapPin = MapPin;
   readonly CheckCircle = CheckCircle;
-  readonly Package = Package;
   readonly WalletCards = WalletCards;
   readonly ShieldCheck = ShieldCheck;
-  readonly Building2 = Building2;
   readonly LoaderCircle = LoaderCircle;
   readonly BadgeCheck = BadgeCheck;
 
@@ -239,13 +206,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   pedidoExitoso = signal(false);
   pedidoConfirmado = signal<PedidoDetalle | null>(null);
   paymentStage = signal<PaymentStage>('idle');
-  cardHolder = signal('TEST USER');
-  cardNumber = signal('4242 4242 4242 4242');
-  cardExpiry = signal('12/30');
-  cardCvv = signal('123');
-  paypalEmail = signal('cliente@sandbox.test');
-  bankName = signal('Banco Sandbox');
-  payerDocument = signal('44556677');
   cuponCodigo = signal('');
   descuentoAplicado = signal(0);
   cuponError = signal('');
@@ -261,6 +221,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit() {
+    const pedidoId = this.route.snapshot.queryParamMap.get('pedido_id');
+    const stripeSessionId = this.route.snapshot.queryParamMap.get('session_id');
+    const stripeStatus = this.route.snapshot.queryParamMap.get('stripe');
+
+    if (pedidoId && stripeSessionId && stripeStatus === 'success') {
+      this.confirmarRetornoStripe(pedidoId, stripeSessionId);
+      return;
+    }
+
+    if (stripeStatus === 'cancel') {
+      this.errorMessage.set('El pago en Stripe fue cancelado. Puedes intentarlo nuevamente.');
+    }
+
     if (this.cartService.items().length === 0) {
       this.router.navigate(['/']);
       return;
@@ -326,11 +299,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const pagoSimulado = this.buildPaymentPayload();
-    if (!pagoSimulado) {
-      return;
-    }
-
     this.loading.set(true);
     this.errorMessage.set('');
     this.startPaymentStageAnimation();
@@ -349,24 +317,32 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.checkoutService.procesarCheckout({
       direccion_id: dirId,
       metodo_pago: metodo,
-      pago_simulado: pagoSimulado,
       cupon_codigo: cuponCodigo,
     }).subscribe({
       next: (pedido) => {
-        this.clearPaymentTimers();
-        this.paymentStage.set('success');
-        this.pedidoConfirmado.set(pedido);
-        this.descuentoAplicado.set(pedido.descuento || 0);
-        this.cartService.clearCart();
-        this.pedidoExitoso.set(true);
-        this.loading.set(false);
-        this.toast.success('El pago de prueba fue registrado correctamente.', 'Pedido Confirmado');
+        const successUrl = `${window.location.origin}/checkout?stripe=success&pedido_id=${pedido.id}&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}/checkout?stripe=cancel&pedido_id=${pedido.id}`;
+
+        this.checkoutService.crearStripeCheckout(pedido.id, {
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+        }).subscribe({
+          next: ({ checkout_url }: StripeCheckoutResponse) => {
+            window.location.assign(checkout_url);
+          },
+          error: (err: any) => {
+            this.clearPaymentTimers();
+            this.paymentStage.set('error');
+            this.loading.set(false);
+            this.errorMessage.set(err?.error?.detail || 'No se pudo iniciar Stripe Checkout.');
+          }
+        });
       },
-      error: (err) => {
+      error: (err: any) => {
         this.clearPaymentTimers();
         this.paymentStage.set('error');
         this.loading.set(false);
-        this.errorMessage.set(err?.error?.detail || 'No se pudo registrar el pago simulado. Intenta de nuevo.');
+        this.errorMessage.set(err?.error?.detail || 'No se pudo crear el pedido. Intenta de nuevo.');
       }
     });
   }
@@ -394,10 +370,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   paymentStageMessage(): string {
     return {
       idle: 'Completa la pasarela y confirma el pedido.',
-      authorizing: 'Validando al pagador y tokenizando datos de prueba.',
-      capturing: 'Registrando la transacción en la base de datos.',
-      success: 'Pago sandbox confirmado.',
-      error: 'La simulación encontró un problema.',
+      authorizing: 'Preparando el pedido antes de enviar a Stripe.',
+      capturing: 'Validando el resultado del pago con Stripe.',
+      success: 'Pago confirmado con Stripe.',
+      error: 'Ocurrió un problema al procesar el pago.',
     }[this.paymentStage()];
   }
 
@@ -433,45 +409,37 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.paymentTimers = [];
   }
 
-  private buildPaymentPayload(): PagoSimuladoPayload | null {
-    const metodo = this.metodoPago();
-    if (metodo === 'tarjeta') {
-      const digits = this.cardNumber().replace(/\s+/g, '');
-      if (!this.cardHolder().trim() || digits.length < 12 || !/^\d{2}\/\d{2}$/.test(this.cardExpiry()) || !/^\d{3,4}$/.test(this.cardCvv())) {
-        this.paymentStage.set('error');
-        this.errorMessage.set('Completa correctamente los datos de la tarjeta sandbox.');
-        return null;
-      }
-      return {
-        titular: this.cardHolder().trim(),
-        numero_tarjeta: this.cardNumber().trim(),
-        vencimiento: this.cardExpiry().trim(),
-        cvv: this.cardCvv().trim(),
-        documento: this.payerDocument().trim() || undefined,
-      };
-    }
+  private confirmarRetornoStripe(pedidoId: string, stripeSessionId: string): void {
+    this.loading.set(true);
+    this.errorMessage.set('');
+    this.paymentStage.set('capturing');
 
-    if (metodo === 'paypal') {
-      if (!this.paypalEmail().trim() || !this.paypalEmail().includes('@')) {
+    this.checkoutService.confirmarPagoStripe(pedidoId, {
+      stripe_session_id: stripeSessionId,
+    }).subscribe({
+      next: (pago: PagoResumen) => {
+        this.checkoutService.getPedidoDetalle(pedidoId).subscribe({
+          next: (pedido) => {
+            this.pedidoConfirmado.set({ ...pedido, pago });
+            this.descuentoAplicado.set(pedido.descuento || 0);
+            this.pedidoExitoso.set(true);
+            this.paymentStage.set('success');
+            this.loading.set(false);
+            this.cartService.clearCart();
+            this.toast.success('El pago fue confirmado correctamente.', 'Pedido Confirmado');
+          },
+          error: (err: any) => {
+            this.paymentStage.set('error');
+            this.loading.set(false);
+            this.errorMessage.set(err?.error?.detail || 'El pago se confirmó, pero no se pudo cargar el pedido.');
+          }
+        });
+      },
+      error: (err: any) => {
         this.paymentStage.set('error');
-        this.errorMessage.set('Ingresa un correo válido para la billetera sandbox.');
-        return null;
+        this.loading.set(false);
+        this.errorMessage.set(err?.error?.detail || 'No se pudo confirmar el pago con Stripe.');
       }
-      return { email_pagador: this.paypalEmail().trim() };
-    }
-
-    if (metodo === 'transferencia') {
-      if (!this.bankName().trim() || !this.payerDocument().trim()) {
-        this.paymentStage.set('error');
-        this.errorMessage.set('Ingresa banco y documento para la transferencia sandbox.');
-        return null;
-      }
-      return {
-        banco: this.bankName().trim(),
-        documento: this.payerDocument().trim(),
-      };
-    }
-
-    return {};
+    });
   }
 }

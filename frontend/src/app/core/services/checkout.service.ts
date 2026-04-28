@@ -33,18 +33,22 @@ export interface PedidoRequest {
   direccion_id: number;
   metodo_pago: string;
   comentario?: string;
-  pago_simulado?: PagoSimuladoPayload;
   cupon_codigo?: string;
 }
 
-export interface PagoSimuladoPayload {
-  titular?: string;
-  numero_tarjeta?: string;
-  vencimiento?: string;
-  cvv?: string;
-  email_pagador?: string;
-  banco?: string;
-  documento?: string;
+export interface StripeCheckoutRequest {
+  success_url: string;
+  cancel_url: string;
+}
+
+export interface StripeCheckoutResponse {
+  checkout_url: string;
+  session_id: string;
+  pedido_id: string;
+}
+
+export interface StripeConfirmRequest {
+  stripe_session_id: string;
 }
 
 export interface PagoResumen {
@@ -139,6 +143,22 @@ export class CheckoutService {
     return this.http.post<PedidoDetalle>(
       `${this.API_URL}/pedidos`,
       pedido,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    );
+  }
+
+  crearStripeCheckout(pedidoId: string, payload: StripeCheckoutRequest): Observable<StripeCheckoutResponse> {
+    return this.http.post<StripeCheckoutResponse>(
+      `${this.API_URL}/pedidos/${pedidoId}/stripe/checkout`,
+      payload,
+      { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    );
+  }
+
+  confirmarPagoStripe(pedidoId: string, payload: StripeConfirmRequest): Observable<PagoResumen> {
+    return this.http.post<PagoResumen>(
+      `${this.API_URL}/pedidos/${pedidoId}/stripe/confirmar`,
+      payload,
       { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
     );
   }

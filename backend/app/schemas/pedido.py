@@ -5,15 +5,14 @@ Schemas de pedidos.
 from datetime import datetime
 
 from pydantic import BaseModel, Field
-from app.schemas.pago import PagoGatewayResponse, PagoSimuladoRequest
+from app.schemas.pago import PagoGatewayResponse
 
 
 class CheckoutRequest(BaseModel):
     """Request para crear un pedido desde el carrito activo."""
     direccion_id: int
-    metodo_pago: str = Field(..., pattern="^(tarjeta|transferencia|efectivo|paypal|otro)$")
+    metodo_pago: str = Field(..., pattern="^tarjeta$")
     comentario: str | None = None
-    pago_simulado: PagoSimuladoRequest | None = None
     cupon_codigo: str | None = Field(None, max_length=50)
 
 
