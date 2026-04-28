@@ -83,6 +83,7 @@ class PedidoItem(Base):
 
     # ── Relationships ──
     pedido = relationship("Pedido", back_populates="items")
+    producto = relationship("Producto", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<PedidoItem {self.sku_producto} x{self.cantidad}>"

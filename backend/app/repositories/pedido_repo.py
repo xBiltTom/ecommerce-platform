@@ -17,7 +17,7 @@ class PedidoRepository:
     async def get_by_id(self, pedido_id: str) -> Pedido | None:
         result = await self.db.execute(
             select(Pedido)
-            .options(selectinload(Pedido.items))
+            .options(selectinload(Pedido.items).selectinload(PedidoItem.producto))
             .where(Pedido.id == pedido_id)
         )
         return result.scalar_one_or_none()
@@ -25,7 +25,7 @@ class PedidoRepository:
     async def get_by_id_and_user(self, pedido_id: str, usuario_id: str) -> Pedido | None:
         result = await self.db.execute(
             select(Pedido)
-            .options(selectinload(Pedido.items))
+            .options(selectinload(Pedido.items).selectinload(PedidoItem.producto))
             .where(Pedido.id == pedido_id, Pedido.usuario_id == usuario_id)
         )
         return result.scalar_one_or_none()
@@ -58,7 +58,7 @@ class PedidoRepository:
     async def list_by_user(
         self, usuario_id: str, page: int = 1, page_size: int = 20
     ) -> tuple[list[Pedido], int]:
-        query = select(Pedido).options(selectinload(Pedido.items)).where(Pedido.usuario_id == usuario_id)
+        query = select(Pedido).options(selectinload(Pedido.items).selectinload(PedidoItem.producto)).where(Pedido.usuario_id == usuario_id)
         count_query = select(func.count()).select_from(Pedido).where(Pedido.usuario_id == usuario_id)
 
         total = (await self.db.execute(count_query)).scalar() or 0
@@ -73,7 +73,7 @@ class PedidoRepository:
         page_size: int = 20,
         estado: str | None = None,
     ) -> tuple[list[Pedido], int]:
-        query = select(Pedido).options(selectinload(Pedido.items))
+        query = select(Pedido).options(selectinload(Pedido.items).selectinload(PedidoItem.producto))
         count_query = select(func.count()).select_from(Pedido)
 
         if estado:

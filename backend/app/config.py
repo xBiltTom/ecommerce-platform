@@ -35,8 +35,11 @@ class Settings(BaseSettings):
     # ── Stripe ─────────────────────────────────────────────
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
-    STRIPE_BUSINESS_NAME: str = "Ecommerce Platform"
+    STRIPE_BUSINESS_NAME: str = "ProTech"
     STRIPE_CHECKOUT_LOCALE: str = "es"
+
+    # ── Servidor ───────────────────────────────────────────
+    BASE_URL: str = "http://localhost:8000"
 
     # ── Uploads ────────────────────────────────────────────
     UPLOAD_DIR: str = "static/uploads/productos"

@@ -66,6 +66,7 @@ class PagoService:
 
         monto_total = self._to_stripe_amount(float(pedido.total))
         nombre_cliente = self._build_customer_name(pedido.usuario)
+        line_items = self._build_line_items(pedido, nombre_cliente, monto_total)
         session = stripe.checkout.Session.create(
             mode="payment",
             success_url=success_url,
@@ -76,6 +77,12 @@ class PagoService:
             customer_email=getattr(pedido.usuario, "email", None),
             customer_creation="always",
             submit_type="pay",
+            billing_address_collection="auto",
+            custom_text={
+                "submit": {
+                    "message": f"Estás en modo prueba. Este pago no será real. Puedes usar tarjetas de prueba de Stripe para completar la transacción en {self.business_name}.",
+                },
+            },
             metadata={
                 "pedido_id": pedido.id,
                 "usuario_id": usuario_id,
@@ -89,7 +96,7 @@ class PagoService:
                     "business_name": self.business_name,
                 },
             },
-            line_items=self._build_line_items(pedido, nombre_cliente, monto_total),
+            line_items=line_items,
         )
 
         pago = await self.pago_repo.create(
@@ -213,6 +220,19 @@ class PagoService:
         decimal_amount = amount.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
         return format(decimal_amount * 100, "f")
 
+    def _get_product_image_url(self, item) -> str | None:
+        producto = getattr(item, "producto", None)
+        if not producto:
+            return None
+        imagen_url = getattr(producto, "imagen_url", None)
+        if not imagen_url:
+            return None
+        imagen_url = imagen_url.strip()
+        if imagen_url.startswith("http"):
+            return imagen_url
+        base = settings.BASE_URL.rstrip("/")
+        return f"{base}{imagen_url}"
+
     def _build_line_items(self, pedido, nombre_cliente: str | None, monto_total: int) -> list[dict]:
         items = list(pedido.items or [])
         if not items:
@@ -250,14 +270,19 @@ class PagoService:
             cantidad = max(int(item.cantidad), 1)
             unit_amount_decimal = self._to_stripe_amount_decimal(base_imponible / Decimal(cantidad))
 
+            product_data = {
+                "name": item.nombre_producto,
+                "description": self._build_item_description(item, descuento_item, nombre_cliente),
+            }
+            imagen_url = self._get_product_image_url(item)
+            if imagen_url:
+                product_data["images"] = [imagen_url]
+
             line_items.append(
                 {
                     "price_data": {
                         "currency": "pen",
-                        "product_data": {
-                            "name": item.nombre_producto,
-                            "description": self._build_item_description(item, descuento_item, nombre_cliente),
-                        },
+                        "product_data": product_data,
                         "unit_amount_decimal": unit_amount_decimal,
                     },
                     "quantity": cantidad,
@@ -271,7 +296,7 @@ class PagoService:
                         "currency": "pen",
                         "product_data": {
                             "name": "IGV (18%)",
-                            "description": f"Impuesto incluido para {self.business_name} en modo prueba.",
+                            "description": f"Impuesto incluido para {self.business_name}.",
                         },
                         "unit_amount": self._to_stripe_amount(float(igv_total)),
                     },
