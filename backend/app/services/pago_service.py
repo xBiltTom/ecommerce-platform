@@ -26,6 +26,10 @@ class PagoService:
         self.pedido_repo = PedidoRepository(db)
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
+    @property
+    def business_name(self) -> str:
+        return settings.STRIPE_BUSINESS_NAME.strip() or "Ecommerce Platform"
+
     async def create_checkout_session(
         self,
         pedido_id: str,
@@ -44,23 +48,37 @@ class PagoService:
             raise BadRequestException("Stripe no está configurado en el backend")
 
         monto_total = self._to_stripe_amount(float(pedido.total))
+        nombre_cliente = self._build_customer_name(pedido.usuario)
         session = stripe.checkout.Session.create(
             mode="payment",
             success_url=success_url,
             cancel_url=cancel_url,
             client_reference_id=pedido.id,
+            locale=settings.STRIPE_CHECKOUT_LOCALE,
             payment_method_types=["card"],
+            customer_email=getattr(pedido.usuario, "email", None),
+            customer_creation="always",
+            submit_type="pay",
             metadata={
                 "pedido_id": pedido.id,
                 "usuario_id": usuario_id,
+                "business_name": self.business_name,
+            },
+            payment_intent_data={
+                "description": f"{self.business_name} | Pedido #{pedido.id[:8].upper()}",
+                "metadata": {
+                    "pedido_id": pedido.id,
+                    "usuario_id": usuario_id,
+                    "business_name": self.business_name,
+                },
             },
             line_items=[
                 {
                     "price_data": {
                         "currency": "pen",
                         "product_data": {
-                            "name": f"Pedido #{pedido.id[:8].upper()}",
-                            "description": self._build_description(pedido),
+                            "name": f"{self.business_name} | Pedido #{pedido.id[:8].upper()}",
+                            "description": self._build_description(pedido, nombre_cliente),
                         },
                         "unit_amount": monto_total,
                     },
@@ -76,13 +94,14 @@ class PagoService:
             monto=float(pedido.total),
             referencia_externa=session.id,
             detalle_respuesta=json.dumps({
-                "pasarela": self.GATEWAY_NAME,
+                "pasarela": f"{self.GATEWAY_NAME} Checkout · {self.business_name}",
                 "entorno": "sandbox",
                 "estado": "pendiente",
+                "negocio": self.business_name,
                 "checkout_url": session.url,
                 "stripe_session_id": session.id,
                 "payment_status": session.payment_status,
-                "resumen": "Sesión de Stripe Checkout creada y pendiente de confirmación.",
+                "resumen": f"Se creó una sesión de pago de prueba para {self.business_name} y quedó pendiente de confirmación.",
             }, ensure_ascii=False),
         )
         await self.db.flush()
@@ -118,13 +137,14 @@ class PagoService:
             latest_charge = stripe.Charge.retrieve(payment_intent.latest_charge)
 
         detalle = {
-            "pasarela": self.GATEWAY_NAME,
+            "pasarela": f"{self.GATEWAY_NAME} Checkout · {self.business_name}",
             "entorno": "sandbox",
+            "negocio": self.business_name,
             "estado": "pagado",
             "stripe_session_id": session.id,
             "payment_intent_id": payment_intent_id,
             "codigo_autorizacion": getattr(latest_charge, "id", None) or payment_intent_id,
-            "resumen": "Pago confirmado correctamente mediante Stripe Checkout.",
+            "resumen": f"Pago de prueba confirmado correctamente en {self.business_name} mediante Stripe Checkout.",
             "monto": round(float(pago.monto), 2),
             "moneda": pago.moneda,
             "ultimos4": self._extract_last4(latest_charge),
@@ -176,9 +196,21 @@ class PagoService:
         decimal_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return int(decimal_amount * 100)
 
-    def _build_description(self, pedido) -> str:
+    def _build_description(self, pedido, nombre_cliente: str | None) -> str:
         total_items = sum(item.cantidad for item in (pedido.items or []))
-        return f"{total_items} artículo(s), total final con descuentos aplicados."
+        partes = [f"{total_items} artículo(s)"]
+        if nombre_cliente:
+            partes.append(f"cliente: {nombre_cliente}")
+        partes.append("total final con descuentos aplicados")
+        return " · ".join(partes) + "."
+
+    def _build_customer_name(self, usuario) -> str | None:
+        if not usuario:
+            return None
+        nombre = (getattr(usuario, "nombre", "") or "").strip()
+        apellido = (getattr(usuario, "apellido", "") or "").strip()
+        full_name = f"{nombre} {apellido}".strip()
+        return full_name or None
 
     def _extract_last4(self, charge) -> str | None:
         if not charge:
