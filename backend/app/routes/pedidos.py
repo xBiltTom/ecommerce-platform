@@ -16,6 +16,7 @@ from app.schemas.pedido import (
 )
 from app.schemas.common import PaginatedResponse, MessageResponse
 from app.services.pedido_service import PedidoService
+from app.services.pago_service import PagoService
 from app.services.cupon_service import CuponService
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])

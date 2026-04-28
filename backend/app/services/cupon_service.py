@@ -128,6 +128,9 @@ class CuponService:
         if cupon.usado:
             raise BadRequestException("El cupón ya ha sido utilizado")
 
+        if cupon.pedido_id is not None:
+            raise BadRequestException("El cupón ya está vinculado a otro pedido")
+
         if cupon.fecha_expiracion < datetime.now(timezone.utc):
             raise BadRequestException("El cupón ha expirado")
 
@@ -158,9 +161,7 @@ class CuponService:
         pedido.cupon_id = cupon.id
         await self.db.flush()
 
-        # 6. Marcar cupón como usado
-        cupon.usado = True
-        cupon.fecha_uso = datetime.now(timezone.utc)
+        # 6. Vincular cupón al pedido (no marcar usado todavía)
         cupon.pedido_id = pedido.id
         await self.db.flush()
 

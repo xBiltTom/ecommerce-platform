@@ -15,6 +15,7 @@ from app.repositories.carrito_repo import CarritoRepository
 from app.repositories.pedido_repo import PedidoRepository
 from app.repositories.producto_repo import ProductoRepository
 from app.repositories.direccion_repo import DireccionRepository
+from app.repositories.cupon_repo import CuponRepository
 from app.repositories.inventario_repo import InventarioRepository
 
 
@@ -27,6 +28,7 @@ class PedidoService:
         self.producto_repo = ProductoRepository(db)
         self.direccion_repo = DireccionRepository(db)
         self.inventario_repo = InventarioRepository(db)
+        self.cupon_repo = CuponRepository(db)
 
     async def checkout(self, usuario_id: str, direccion_id: int, comentario: str | None = None):
         """Crea un pedido desde el carrito activo. Transacción atómica."""
@@ -186,6 +188,15 @@ class PedidoService:
 
         if pedido.estado != "pendiente":
             raise BadRequestException("Solo se pueden cancelar pedidos pendientes")
+
+        # Liberar cupón vinculado si existe
+        if pedido.cupon_id:
+            cupon = await self.cupon_repo.get_by_id(pedido.cupon_id)
+            if cupon:
+                cupon.usado = False
+                cupon.fecha_uso = None
+                cupon.pedido_id = None
+                await self.db.flush()
 
         pedido.estado = "cancelado"
         await self.db.flush()

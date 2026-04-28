@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.exceptions import BadRequestException, NotFoundException
 from app.models.pago import Pago
+from app.repositories.cupon_repo import CuponRepository
 from app.repositories.pago_repo import PagoRepository
 from app.repositories.pedido_repo import PedidoRepository
 
@@ -25,6 +26,7 @@ class PagoService:
         self.db = db
         self.pago_repo = PagoRepository(db)
         self.pedido_repo = PedidoRepository(db)
+        self.cupon_repo = CuponRepository(db)
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
     @property
@@ -157,6 +159,14 @@ class PagoService:
                 comentario=f"Pago confirmado vía Stripe Checkout. Ref {stripe_session_id}",
                 creado_por=usuario_id,
             )
+
+        # Marcar cupón como usado al completar el pago
+        if pedido.cupon_id:
+            cupon = await self.cupon_repo.get_by_id(pedido.cupon_id)
+            if cupon and not cupon.usado:
+                cupon.usado = True
+                cupon.fecha_uso = datetime.now(timezone.utc)
+                await self.db.flush()
 
         return pago
 
