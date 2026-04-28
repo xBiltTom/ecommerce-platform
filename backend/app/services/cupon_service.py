@@ -3,7 +3,7 @@ Servicio de gestión de cupones de descuento.
 """
 
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -131,7 +131,13 @@ class CuponService:
         if cupon.fecha_expiracion < datetime.now(timezone.utc):
             raise BadRequestException("El cupón ha expirado")
 
-        # 3. Calcular descuento
+        # 3. Validar restricción de cupón porcentual para una sola unidad
+        if cupon.tipo_descuento == "porcentaje":
+            total_unidades = sum(item.cantidad for item in pedido.items or [])
+            if total_unidades > 1:
+                raise BadRequestException("Este cupón solo es válido para una sola unidad")
+
+        # 4. Calcular descuento
         subtotal = Decimal(str(pedido.subtotal))
         if cupon.tipo_descuento == "porcentaje":
             descuento = subtotal * (Decimal(str(cupon.valor)) / Decimal("100"))
@@ -140,15 +146,19 @@ class CuponService:
 
         # Capar descuento al subtotal (total no puede ser negativo)
         descuento = min(descuento, subtotal)
-        nuevo_total = float(subtotal - descuento + Decimal(str(pedido.costo_envio)))
 
-        # 4. Actualizar pedido
+        # Redondear a 2 decimales para coherencia con la base de datos
+        descuento = descuento.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        nuevo_total = subtotal - descuento + Decimal(str(pedido.costo_envio))
+        nuevo_total = nuevo_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        # 5. Actualizar pedido
         pedido.descuento = float(descuento)
-        pedido.total = nuevo_total
+        pedido.total = float(nuevo_total)
         pedido.cupon_id = cupon.id
         await self.db.flush()
 
-        # 5. Marcar cupón como usado
+        # 6. Marcar cupón como usado
         cupon.usado = True
         cupon.fecha_uso = datetime.now(timezone.utc)
         cupon.pedido_id = pedido.id

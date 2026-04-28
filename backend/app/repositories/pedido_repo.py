@@ -4,6 +4,7 @@ Repositorio de acceso a datos para pedidos.
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.pedido import Pedido, PedidoItem, PedidoHistorial
 
@@ -19,7 +20,9 @@ class PedidoRepository:
 
     async def get_by_id_and_user(self, pedido_id: str, usuario_id: str) -> Pedido | None:
         result = await self.db.execute(
-            select(Pedido).where(Pedido.id == pedido_id, Pedido.usuario_id == usuario_id)
+            select(Pedido)
+            .options(selectinload(Pedido.items))
+            .where(Pedido.id == pedido_id, Pedido.usuario_id == usuario_id)
         )
         return result.scalar_one_or_none()
 
