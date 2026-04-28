@@ -54,12 +54,16 @@ class EstadisticasRepository:
 
     # ── Bloque 2: Distribución por categoría ──
 
-    async def get_ventas_por_categoria(self) -> list[dict]:
+    async def get_ventas_por_categoria(
+        self,
+        fecha_inicio: datetime | None = None,
+        fecha_fin: datetime | None = None,
+    ) -> list[dict]:
         """
         JOIN entre pedido_items → productos → categorías para obtener
         qué categorías generan más ventas.
         """
-        result = await self.db.execute(
+        query = (
             select(
                 func.coalesce(Categoria.nombre, "Sin categoría").label("categoria"),
                 func.sum(PedidoItem.cantidad).label("cantidad_vendida"),
@@ -69,8 +73,13 @@ class EstadisticasRepository:
             .outerjoin(Producto, PedidoItem.producto_id == Producto.id)
             .outerjoin(Categoria, Producto.categoria_id == Categoria.id)
             .where(Pedido.estado.in_(_ESTADOS_VENTA))
-            .group_by(Categoria.nombre)
-            .order_by(func.sum(PedidoItem.subtotal).desc())
+        )
+        if fecha_inicio is not None:
+            query = query.where(Pedido.fecha_creacion >= fecha_inicio)
+        if fecha_fin is not None:
+            query = query.where(Pedido.fecha_creacion <= fecha_fin)
+        result = await self.db.execute(
+            query.group_by(Categoria.nombre).order_by(func.sum(PedidoItem.subtotal).desc())
         )
         return [
             {
