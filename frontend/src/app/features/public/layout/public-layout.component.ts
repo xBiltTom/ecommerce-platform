@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
-import { LucideAngularModule, Search, ShoppingBag, User, Menu, LogOut, ChevronDown, X } from 'lucide-angular';
+import { LucideAngularModule, Search, ShoppingBag, User, Menu, LogOut, ChevronDown, X, AlertTriangle } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { CheckoutService, PedidoHistorialItem } from '../../../core/services/checkout.service';
 import { CartSidebarComponent } from '../../../shared/components/cart-sidebar/cart-sidebar.component';
 import { Categoria, Marca, ProductService } from '../../../core/services/product.service';
 
@@ -237,6 +238,27 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
         </div>
       </header>
 
+      <!-- Pending Orders Alert -->
+      <div
+        *ngIf="authService.isAuthenticated() && !authService.isAdmin() && pendingOrdersCount() > 0"
+        class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2"
+      >
+        <div class="max-w-7xl mx-auto flex items-center justify-center gap-2 text-sm">
+          <lucide-icon [img]="AlertTriangle" [size]="16" class="text-amber-400"></lucide-icon>
+          <span class="text-amber-200">
+            Tienes <strong class="text-amber-100">{{ pendingOrdersCount() }}</strong> pedido{{ pendingOrdersCount() > 1 ? 's' : '' }} pendiente{{ pendingOrdersCount() > 1 ? 's' : '' }} de pago.
+          </span>
+          <button
+            type="button"
+            class="text-amber-100 underline hover:text-white transition-colors ml-1"
+            routerLink="/mi-perfil"
+            (click)="closeNavigationLayers()"
+          >
+            Ver en historial
+          </button>
+        </div>
+      </div>
+
       <!-- Main Content Area -->
       <main class="flex-grow">
         <router-outlet></router-outlet>
@@ -311,7 +333,9 @@ export class PublicLayoutComponent implements OnInit, OnDestroy {
 
   cartService = inject(CartService);
   authService = inject(AuthService);
+  private readonly checkoutService = inject(CheckoutService);
   isCartOpen = signal(false);
+  pendingOrdersCount = signal(0);
   isSearchOpen = signal(false);
   isMobileMenuOpen = signal(false);
   isCategoryMenuOpen = signal(false);
@@ -327,6 +351,7 @@ export class PublicLayoutComponent implements OnInit, OnDestroy {
   readonly LogOut = LogOut;
   readonly ChevronDown = ChevronDown;
   readonly X = X;
+  readonly AlertTriangle = AlertTriangle;
 
   ngOnInit() {
     this.productService
@@ -338,6 +363,20 @@ export class PublicLayoutComponent implements OnInit, OnDestroy {
       .getMarcas()
       .pipe(takeUntil(this.destroy$))
       .subscribe((res) => this.marcas.set(res.items));
+
+    this.loadPendingOrders();
+  }
+
+  private loadPendingOrders(): void {
+    if (!this.authService.isAuthenticated() || this.authService.isAdmin()) {
+      return;
+    }
+    this.checkoutService.getPedidos(1, 100)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((res) => {
+        const pendientes = res.items.filter((p) => p.estado === 'pendiente');
+        this.pendingOrdersCount.set(pendientes.length);
+      });
   }
 
   ngOnDestroy() {

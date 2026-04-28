@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { LucideAngularModule, User, ShoppingBag, Eye, X, Loader, AlertCircle, ChevronLeft, ChevronRight, ShieldCheck, KeyRound } from 'lucide-angular';
+import { LucideAngularModule, User, ShoppingBag, Eye, X, Loader, AlertCircle, ChevronLeft, ChevronRight, ShieldCheck, KeyRound, CreditCard } from 'lucide-angular';
 import { AuthService, Usuario } from '../../../core/services/auth.service';
 import {
   CheckoutService,
@@ -310,6 +310,20 @@ type PedidoDetalleView = PedidoDetalle & {
                   </app-button>
 
                   <app-button
+                    *ngIf="pedido.estado === 'pendiente'"
+                    variant="primary"
+                    size="sm"
+                    [disabled]="payingPedidoId() === pedido.id"
+                    (onClick)="pagarPedido(pedido.id)"
+                  >
+                    <span class="inline-flex items-center gap-1.5">
+                      <lucide-icon *ngIf="payingPedidoId() === pedido.id" [img]="Loader" [size]="14" class="animate-spin"></lucide-icon>
+                      <lucide-icon *ngIf="payingPedidoId() !== pedido.id" [img]="CreditCard" [size]="14"></lucide-icon>
+                      {{ payingPedidoId() === pedido.id ? 'Redirigiendo...' : 'Pagar ahora' }}
+                    </span>
+                  </app-button>
+
+                  <app-button
                     *ngIf="canCancel(pedido.estado)"
                     variant="ghost"
                     size="sm"
@@ -490,6 +504,7 @@ export class ProfileComponent implements OnInit {
   readonly ChevronRight = ChevronRight;
   readonly ShieldCheck = ShieldCheck;
   readonly KeyRound = KeyRound;
+  readonly CreditCard = CreditCard;
 
   readonly activeSection = signal<ProfileSection>('datos');
   readonly loadingProfile = signal(false);
@@ -510,6 +525,7 @@ export class ProfileComponent implements OnInit {
   readonly selectedPedido = signal<PedidoDetalleView | null>(null);
   readonly loadingPedidoDetalle = signal(false);
   readonly cancelingPedidoId = signal<string | null>(null);
+  readonly payingPedidoId = signal<string | null>(null);
 
   readonly currentUser = this.authService.currentUser;
   readonly userInitials = computed(() => {
@@ -680,6 +696,23 @@ export class ProfileComponent implements OnInit {
     this.selectedPedidoId.set(null);
     this.selectedPedido.set(null);
     this.loadingPedidoDetalle.set(false);
+  }
+
+  pagarPedido(pedidoId: string): void {
+    this.payingPedidoId.set(pedidoId);
+    const successUrl = `${window.location.origin}/mi-perfil?pedido=${pedidoId}&result=success`;
+    const cancelUrl = `${window.location.origin}/mi-perfil?pedido=${pedidoId}&result=cancel`;
+
+    this.checkoutService.crearStripeCheckout(pedidoId, { success_url: successUrl, cancel_url: cancelUrl }).subscribe({
+      next: (response) => {
+        this.payingPedidoId.set(null);
+        window.location.href = response.checkout_url;
+      },
+      error: () => {
+        this.payingPedidoId.set(null);
+        this.toast.error('No se pudo iniciar el pago. Intenta de nuevo.', 'Pago');
+      },
+    });
   }
 
   cancelPedido(pedidoId: string): void {

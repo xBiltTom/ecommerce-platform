@@ -50,6 +50,20 @@ class PagoService:
         if not settings.STRIPE_SECRET_KEY:
             raise BadRequestException("Stripe no está configurado en el backend")
 
+        # Cancelar intentos de pago previos pendientes para poder reintentar
+        pagos_previos = await self.pago_repo.list_by_pedido(pedido.id)
+        for pago_previo in pagos_previos:
+            if pago_previo.estado == "pendiente":
+                await self.pago_repo.update(
+                    pago_previo,
+                    estado="cancelado",
+                    detalle_respuesta=json.dumps({
+                        **self._parse_detail_payload(pago_previo.detalle_respuesta),
+                        "estado": "cancelado",
+                        "nota": "Sesión cancelada por reintento de checkout",
+                    }, ensure_ascii=False),
+                )
+
         monto_total = self._to_stripe_amount(float(pedido.total))
         nombre_cliente = self._build_customer_name(pedido.usuario)
         session = stripe.checkout.Session.create(
