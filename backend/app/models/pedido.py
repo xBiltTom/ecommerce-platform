@@ -37,6 +37,9 @@ class Pedido(Base):
     descuento: Mapped[float] = mapped_column(sa.Numeric(10, 2), nullable=False, server_default=sa.text("0"))
     costo_envio: Mapped[float] = mapped_column(sa.Numeric(10, 2), nullable=False, server_default=sa.text("0"))
     total: Mapped[float] = mapped_column(sa.Numeric(10, 2), nullable=False)
+    cupon_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), sa.ForeignKey("cupones_descuento.id", ondelete="SET NULL"), nullable=True
+    )
     estado: Mapped[str] = mapped_column(
         sa.Enum(
             "pendiente", "pagado", "en_preparacion", "enviado", "entregado", "cancelado",

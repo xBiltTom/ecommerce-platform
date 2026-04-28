@@ -14,3 +14,4 @@ from app.models.pago import Pago  # noqa: F401
 from app.models.inventario import MovimientoInventario  # noqa: F401
 from app.models.sesion import SesionUsuario  # noqa: F401
 from app.models.auditoria import AdminAuditoria  # noqa: F401
+from app.models.cupon import CuponDescuento  # noqa: F401

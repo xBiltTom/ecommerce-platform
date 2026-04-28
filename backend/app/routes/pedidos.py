@@ -17,6 +17,7 @@ from app.schemas.pedido import (
 from app.schemas.common import PaginatedResponse, MessageResponse
 from app.services.pedido_service import PedidoService
 from app.services.pago_service import PagoService
+from app.services.cupon_service import CuponService
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 
@@ -51,6 +52,13 @@ async def checkout(
     pedido = await pedido_service.checkout(
         current_user.id, body.direccion_id, body.comentario,
     )
+
+    # Aplicar cupón si se proporcionó
+    if body.cupon_codigo:
+        cupon_service = CuponService(db)
+        await cupon_service.aplicar_cupon_a_pedido(
+            pedido.id, body.cupon_codigo, current_user.id
+        )
 
     pago_service = PagoService(db)
     pago = await pago_service.create_pago(

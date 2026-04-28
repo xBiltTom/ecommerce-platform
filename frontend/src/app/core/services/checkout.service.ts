@@ -34,6 +34,7 @@ export interface PedidoRequest {
   metodo_pago: string;
   comentario?: string;
   pago_simulado?: PagoSimuladoPayload;
+  cupon_codigo?: string;
 }
 
 export interface PagoSimuladoPayload {

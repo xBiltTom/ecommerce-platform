@@ -14,6 +14,7 @@ class CheckoutRequest(BaseModel):
     metodo_pago: str = Field(..., pattern="^(tarjeta|transferencia|efectivo|paypal|otro)$")
     comentario: str | None = None
     pago_simulado: PagoSimuladoRequest | None = None
+    cupon_codigo: str | None = Field(None, max_length=50)
 
 
 class PedidoItemResponse(BaseModel):

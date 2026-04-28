@@ -48,7 +48,9 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Pedido</p>
             <p class="mt-2 text-2xl font-black">#{{ shortId(pedido.id) }}</p>
-            <p class="mt-2 text-sm text-emerald-50/75">Total {{ pedido.total | currency:'PEN':'S/ ' }}</p>
+            <p class="mt-2 text-sm text-emerald-50/75" *ngIf="pedido.descuento > 0">Subtotal {{ pedido.subtotal | currency:'PEN':'S/ ' }}</p>
+            <p class="mt-1 text-sm text-emerald-300 font-semibold" *ngIf="pedido.descuento > 0">Descuento -{{ pedido.descuento | currency:'PEN':'S/ ' }}</p>
+            <p class="mt-2 text-sm text-emerald-50/75 font-semibold">Total {{ pedido.total | currency:'PEN':'S/ ' }}</p>
           </div>
           <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p class="text-xs uppercase tracking-[0.2em] text-emerald-100/70">Referencia</p>
@@ -161,28 +163,45 @@ type PaymentStage = 'idle' | 'authorizing' | 'capturing' | 'success' | 'error';
           </section>
         </div>
 
-        <aside class="lg:col-span-1">
-          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle sticky top-24">
-            <h3 class="text-xl font-bold text-text-primary mb-6">Resumen de la Orden</h3>
-            <div class="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+          <aside class="lg:col-span-1">
+          <div class="bg-bg-surface p-6 rounded-card border border-border-subtle sticky top-24 space-y-5">
+            <h3 class="text-xl font-bold text-text-primary">Resumen de la Orden</h3>
+            <div class="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
               <div *ngFor="let item of cartService.items()" class="flex gap-4">
                 <div class="w-16 h-16 bg-white p-1 rounded-sm border border-border-subtle flex-shrink-0"><img [src]="item.producto.imagen_url || 'https://placehold.co/400x400/1E293B/38BDF8?text=NO+IMG'" class="w-full h-full object-contain"></div>
                 <div class="flex-grow"><h4 class="text-sm text-text-primary line-clamp-2">{{ item.producto.nombre }}</h4><div class="flex justify-between items-center mt-1"><span class="text-xs text-text-secondary">Cant: {{ item.cantidad }}</span><span class="text-sm font-medium">{{ (item.producto.precio_oferta || item.producto.precio) | currency:'PEN':'S/ ' }}</span></div></div>
               </div>
             </div>
-            <div class="border-t border-border-subtle pt-4 space-y-3 mb-6">
-              <div class="flex justify-between text-text-secondary"><span>Subtotal</span><span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span></div>
-              <div class="flex justify-between text-text-secondary"><span>Envío</span><span>Gratis</span></div>
-              <div class="flex justify-between text-lg font-bold text-text-primary pt-3 border-t border-border-subtle"><span>Total</span><span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span></div>
+
+            <!-- Cupón de descuento -->
+            <div class="rounded-2xl border border-border-subtle bg-bg-main/70 p-4 space-y-3">
+              <label class="block text-sm font-medium text-text-primary">Código de descuento</label>
+              <div class="flex gap-2">
+                <input type="text" [ngModel]="cuponCodigo()" (ngModelChange)="cuponCodigo.set($event)" [ngModelOptions]="{ standalone: true }" placeholder="Ingresa tu cupón" class="flex-1 rounded-xl border border-border-subtle bg-bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary uppercase" [disabled]="loading()">
+              </div>
+              <p *ngIf="cuponError()" class="text-xs text-red-400">{{ cuponError() }}</p>
             </div>
-            <div class="mb-4 rounded-2xl border border-border-subtle bg-bg-main/70 p-4">
+
+            <div class="border-t border-border-subtle pt-4 space-y-3">
+              <div class="flex justify-between text-text-secondary"><span>Subtotal</span><span>{{ cartService.totalAmount() | currency:'PEN':'S/ ' }}</span></div>
+              <div *ngIf="descuentoAplicado() > 0" class="flex justify-between text-emerald-400">
+                <span>Descuento</span>
+                <span>-{{ descuentoAplicado() | currency:'PEN':'S/ ' }}</span>
+              </div>
+              <div class="flex justify-between text-text-secondary"><span>Envío</span><span>Gratis</span></div>
+              <div class="flex justify-between text-lg font-bold text-text-primary pt-3 border-t border-border-subtle">
+                <span>Total</span>
+                <span>{{ (cartService.totalAmount() - descuentoAplicado()) | currency:'PEN':'S/ ' }}</span>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-border-subtle bg-bg-main/70 p-4">
               <p class="text-xs uppercase tracking-[0.2em] text-text-secondary">Estado del procesamiento</p>
               <div class="mt-3 flex items-center gap-3">
                 <lucide-icon [img]="loading() ? LoaderCircle : CheckCircle" [size]="18" [class]="loading() ? 'animate-spin text-accent-primary' : 'text-text-secondary'"></lucide-icon>
                 <p class="text-sm text-text-primary">{{ paymentStageMessage() }}</p>
               </div>
             </div>
-            <div *ngIf="errorMessage()" class="mb-4 text-red-400 text-sm bg-red-500/10 p-3 rounded-sm border border-red-500/30">{{ errorMessage() }}</div>
+            <div *ngIf="errorMessage()" class="text-red-400 text-sm bg-red-500/10 p-3 rounded-sm border border-red-500/30">{{ errorMessage() }}</div>
             <app-button variant="primary" [fullWidth]="true" size="lg" (onClick)="procesarOrden()" [disabled]="loading() || !direccionSeleccionada() || !metodoPago() || cartService.items().length === 0">
               {{ loading() ? 'Procesando pago sandbox...' : 'Confirmar y pagar' }}
             </app-button>
@@ -227,6 +246,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   paypalEmail = signal('cliente@sandbox.test');
   bankName = signal('Banco Sandbox');
   payerDocument = signal('44556677');
+  cuponCodigo = signal('');
+  descuentoAplicado = signal(0);
+  cuponError = signal('');
   private paymentTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   direccionForm = this.fb.group({
@@ -322,15 +344,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const cuponCodigo = this.cuponCodigo().trim().toUpperCase() || undefined;
+
     this.checkoutService.procesarCheckout({
       direccion_id: dirId,
       metodo_pago: metodo,
       pago_simulado: pagoSimulado,
+      cupon_codigo: cuponCodigo,
     }).subscribe({
       next: (pedido) => {
         this.clearPaymentTimers();
         this.paymentStage.set('success');
         this.pedidoConfirmado.set(pedido);
+        this.descuentoAplicado.set(pedido.descuento || 0);
         this.cartService.clearCart();
         this.pedidoExitoso.set(true);
         this.loading.set(false);

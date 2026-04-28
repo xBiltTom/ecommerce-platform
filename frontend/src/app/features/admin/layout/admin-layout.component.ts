@@ -14,6 +14,7 @@ import {
   Settings, 
   FolderTree, 
   Tag,
+  Ticket,
   Menu,
   X
 } from 'lucide-angular';
@@ -82,6 +83,11 @@ import {
           <a routerLink="/admin/marcas" (click)="closeMobileMenu()" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
             <lucide-icon [img]="Tag" [size]="20" class="group-hover:scale-110 transition-transform duration-300 ease-out"></lucide-icon>
             Marcas
+          </a>
+
+          <a routerLink="/admin/cupones" (click)="closeMobileMenu()" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
+            <lucide-icon [img]="Ticket" [size]="20" class="group-hover:scale-110 transition-transform duration-300 ease-out"></lucide-icon>
+            Cupones
           </a>
           
           <a routerLink="/admin/usuarios" (click)="closeMobileMenu()" routerLinkActive="bg-accent-primary/10 text-accent-primary border-accent-primary" class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-main rounded-sm transition-all duration-200 border border-transparent font-medium cursor-pointer group">
@@ -174,6 +180,7 @@ export class AdminLayoutComponent implements OnInit {
   readonly Settings = Settings;
   readonly FolderTree = FolderTree;
   readonly Tag = Tag;
+  readonly Ticket = Ticket;
   readonly Menu = Menu;
   readonly X = X;
 

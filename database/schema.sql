@@ -12,6 +12,7 @@ CREATE TYPE estado_carrito AS ENUM ('activo', 'finalizado', 'abandonado');
 CREATE TYPE estado_pedido AS ENUM ('pendiente', 'pagado', 'en_preparacion', 'enviado', 'entregado', 'cancelado');
 CREATE TYPE estado_pago AS ENUM ('pendiente', 'autorizado', 'pagado', 'fallido', 'reembolsado', 'cancelado');
 CREATE TYPE metodo_pago AS ENUM ('tarjeta', 'transferencia', 'efectivo', 'paypal', 'otro');
+CREATE TYPE tipo_descuento AS ENUM ('porcentaje', 'monto_fijo');
 CREATE TYPE tipo_movimiento_inventario AS ENUM ('entrada', 'salida', 'reserva', 'liberacion_reserva', 'ajuste');
 
 -- ========================================
@@ -163,6 +164,28 @@ CREATE TABLE carrito_items (
 );
 
 -- ========================================
+-- CUPONES DE DESCUENTO
+-- ========================================
+CREATE TABLE cupones_descuento (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    codigo VARCHAR(50) NOT NULL UNIQUE,
+    tipo_descuento tipo_descuento NOT NULL,
+    valor NUMERIC(10,2) NOT NULL CHECK (valor > 0),
+    fecha_expiracion TIMESTAMPTZ NOT NULL,
+    usado BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_uso TIMESTAMPTZ,
+    pedido_id UUID,
+    creado_por UUID NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT check_cupon_codigo_no_vacio CHECK (btrim(codigo) <> ''),
+    CONSTRAINT check_cupon_valor_porcentaje CHECK (
+        (tipo_descuento = 'porcentaje' AND valor BETWEEN 0 AND 100)
+        OR (tipo_descuento = 'monto_fijo' AND valor > 0)
+    )
+);
+
+-- ========================================
 -- PEDIDOS
 -- ========================================
 CREATE TABLE pedidos (
@@ -181,6 +204,7 @@ CREATE TABLE pedidos (
     descuento NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (descuento >= 0),
     costo_envio NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (costo_envio >= 0),
     total NUMERIC(10,2) NOT NULL CHECK (total >= 0),
+    cupon_id UUID REFERENCES cupones_descuento(id) ON DELETE SET NULL,
     estado estado_pedido NOT NULL DEFAULT 'pendiente',
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -339,6 +363,11 @@ BEFORE UPDATE ON pagos
 FOR EACH ROW
 EXECUTE FUNCTION actualizar_fecha_actualizacion();
 
+CREATE TRIGGER trg_cupones_descuento_fecha_actualizacion
+BEFORE UPDATE ON cupones_descuento
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
 -- ========================================
 -- INDICES
 -- ========================================
@@ -371,6 +400,7 @@ CREATE INDEX idx_carrito_items_producto ON carrito_items(producto_id);
 CREATE INDEX idx_pedidos_usuario ON pedidos(usuario_id);
 CREATE INDEX idx_pedidos_estado ON pedidos(estado);
 CREATE INDEX idx_pedidos_fecha_creacion ON pedidos(fecha_creacion);
+CREATE INDEX idx_pedidos_cupon_id ON pedidos(cupon_id);
 
 CREATE INDEX idx_pedido_items_pedido ON pedido_items(pedido_id);
 CREATE INDEX idx_pedido_items_producto ON pedido_items(producto_id);
@@ -391,6 +421,10 @@ CREATE INDEX idx_sesiones_expira_en ON sesiones_usuario(expira_en);
 
 CREATE INDEX idx_admin_auditoria_admin ON admin_auditoria(admin_usuario_id);
 CREATE INDEX idx_admin_auditoria_fecha ON admin_auditoria(fecha_creacion);
+
+CREATE INDEX idx_cupones_codigo ON cupones_descuento USING btree (lower(codigo));
+CREATE INDEX idx_cupones_usado ON cupones_descuento(usado);
+CREATE INDEX idx_cupones_fecha_expiracion ON cupones_descuento(fecha_expiracion);
 
 -- ========================================
 -- DATOS INICIALES (SEMILLA)

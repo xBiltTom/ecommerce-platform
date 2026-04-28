@@ -77,6 +77,26 @@ export interface PedidosPorEstado {
   cantidad: number;
 }
 
+export interface CuponDescuento {
+  id: string;
+  codigo: string;
+  tipo_descuento: 'porcentaje' | 'monto_fijo';
+  valor: number;
+  fecha_expiracion: string;
+  usado: boolean;
+  pedido_id: string | null;
+  fecha_uso: string | null;
+  creado_por: string;
+  fecha_creacion: string;
+}
+
+export interface CuponCreatePayload {
+  codigo: string;
+  tipo_descuento: 'porcentaje' | 'monto_fijo';
+  valor: number;
+  dias_expiracion: number;
+}
+
 export interface ProductoBajoStock {
   id: number;
   sku: string;
@@ -377,6 +397,16 @@ export class AdminService {
 
   deleteMarca(id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.MARCAS_URL}/${id}`);
+  }
+
+  // -- Cupones de Descuento --
+  getCupones(page = 1, pageSize = 10): Observable<PaginatedResponse<CuponDescuento>> {
+    const params = this.toParams({ page, page_size: pageSize });
+    return this.http.get<PaginatedResponse<CuponDescuento>>(`${this.ADMIN_URL}/cupones`, { params });
+  }
+
+  createCupon(payload: CuponCreatePayload): Observable<CuponDescuento> {
+    return this.http.post<CuponDescuento>(`${this.ADMIN_URL}/cupones`, payload);
   }
 
   // Reporte PDF

@@ -24,6 +24,8 @@ from app.services.usuario_service import UsuarioService
 from app.services.pedido_service import PedidoService
 from app.services.inventario_service import InventarioService
 from app.services.pdf_service import PDFService
+from app.services.cupon_service import CuponService
+from app.schemas.cupon import CuponCreateRequest, CuponResponse
 
 router = APIRouter(prefix="/admin", tags=["Administración"])
 
@@ -303,4 +305,50 @@ async def download_ventas_pdf(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=reporte_ventas.pdf"},
+    )
+
+
+# ── Cupones de Descuento ──
+
+@router.post("/cupones", response_model=CuponResponse, status_code=201)
+async def create_cupon(
+    body: CuponCreateRequest,
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = CuponService(db)
+    cupon = await service.crear_cupon(
+        codigo=body.codigo,
+        tipo_descuento=body.tipo_descuento,
+        valor=body.valor,
+        dias_expiracion=body.dias_expiracion,
+        admin_id=admin.id,
+    )
+    # Log auditoría
+    admin_service = AdminService(db)
+    await admin_service.log_action(
+        admin_id=admin.id,
+        entidad="cupon_descuento",
+        entidad_id=str(cupon.id),
+        accion="crear",
+        detalle={"codigo": cupon.codigo, "tipo": cupon.tipo_descuento, "valor": float(cupon.valor)},
+    )
+    return CuponResponse.model_validate(cupon)
+
+
+@router.get("/cupones", response_model=PaginatedResponse[CuponResponse])
+async def list_cupones(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = CuponService(db)
+    items, total = await service.listar_cupones(page, page_size)
+    return PaginatedResponse(
+        items=[CuponResponse.model_validate(c) for c in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total > 0 else 0,
     )
