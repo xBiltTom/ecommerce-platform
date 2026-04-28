@@ -24,18 +24,18 @@ from app.repositories.estadisticas_repo import EstadisticasRepository
 
 
 # ── Paleta Dark Cyber ──
-_BG_MAIN        = colors.HexColor("#0A0D14")
-_BG_SURFACE     = colors.HexColor("#0F172A")
-_BG_ALT         = colors.HexColor("#131C2D")
-_BORDER         = colors.HexColor("#1E293B")
-_TEXT_PRIMARY   = colors.HexColor("#E2E8F0")
-_TEXT_SECONDARY = colors.HexColor("#94A3B8")
-_ACCENT_CYAN    = colors.HexColor("#38BDF8")
-_ACCENT_EMERALD = colors.HexColor("#10B981")
-_ACCENT_AMBER   = colors.HexColor("#F59E0B")
-_ACCENT_VIOLET  = colors.HexColor("#A78BFA")
-_ACCENT_BLUE    = colors.HexColor("#60A5FA")
-_ACCENT_RED     = colors.HexColor("#F87171")
+_BG_MAIN        = colors.HexColor("#F4F7FB")
+_BG_SURFACE     = colors.HexColor("#FFFFFF")
+_BG_ALT         = colors.HexColor("#EEF3F8")
+_BORDER         = colors.HexColor("#C9D3E0")
+_TEXT_PRIMARY   = colors.HexColor("#1F2937")
+_TEXT_SECONDARY = colors.HexColor("#66758A")
+_ACCENT_CYAN    = colors.HexColor("#1F4E79")
+_ACCENT_EMERALD = colors.HexColor("#446B5D")
+_ACCENT_AMBER   = colors.HexColor("#8B6F3D")
+_ACCENT_VIOLET  = colors.HexColor("#667085")
+_ACCENT_BLUE    = colors.HexColor("#355C7D")
+_ACCENT_RED     = colors.HexColor("#8A5A5A")
 _WHITE          = colors.HexColor("#FFFFFF")
 
 
@@ -47,7 +47,7 @@ def _draw_background(canvas, doc):
     canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], fill=True, stroke=False)
     # Línea de acento superior (barra delgada cyan)
     canvas.setFillColor(_ACCENT_CYAN)
-    canvas.rect(0, doc.pagesize[1] - 3, doc.pagesize[0], 3, fill=True, stroke=False)
+    canvas.rect(0, doc.pagesize[1] - 8, doc.pagesize[0], 8, fill=True, stroke=False)
     # Marco interior sutil
     canvas.setStrokeColor(_BORDER)
     canvas.setLineWidth(0.5)
@@ -71,7 +71,7 @@ def _base_styles():
             parent=ss["Title"],
             fontSize=20,
             fontName="Helvetica-Bold",
-            textColor=_WHITE,
+            textColor=_TEXT_PRIMARY,
             alignment=0,
             spaceAfter=4,
         ),
@@ -104,7 +104,7 @@ def _base_styles():
             parent=ss["Normal"],
             fontSize=18,
             fontName="Helvetica-Bold",
-            textColor=_ACCENT_EMERALD,
+            textColor=_ACCENT_CYAN,
             spaceAfter=2,
         ),
         "kpi_value_alt": ParagraphStyle(
@@ -112,7 +112,7 @@ def _base_styles():
             parent=ss["Normal"],
             fontSize=18,
             fontName="Helvetica-Bold",
-            textColor=_ACCENT_CYAN,
+            textColor=_ACCENT_BLUE,
             spaceAfter=2,
         ),
         "card_label": ParagraphStyle(
@@ -128,7 +128,7 @@ def _base_styles():
             parent=ss["Normal"],
             fontSize=17,
             fontName="Helvetica-Bold",
-            textColor=_WHITE,
+            textColor=_TEXT_PRIMARY,
             leading=19,
         ),
         "card_detail": ParagraphStyle(
@@ -174,8 +174,8 @@ def _table_style_base() -> list:
     """Estilos compartidos para todas las tablas."""
     return [
         # Encabezado
-        ("BACKGROUND", (0, 0), (-1, 0), _BG_SURFACE),
-        ("TEXTCOLOR",  (0, 0), (-1, 0), _ACCENT_CYAN),
+        ("BACKGROUND", (0, 0), (-1, 0), _ACCENT_CYAN),
+        ("TEXTCOLOR",  (0, 0), (-1, 0), _WHITE),
         ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE",   (0, 0), (-1, 0), 8),
         ("TOPPADDING",    (0, 0), (-1, 0), 7),
@@ -233,6 +233,7 @@ def _build_metric_card(label: str, value: str, detail: str, width: float, accent
         ("BACKGROUND", (0, 0), (-1, -1), _BG_SURFACE),
         ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
         ("LINEBEFORE", (0, 0), (0, -1), 3, accent),
+        ("LINEABOVE", (0, 0), (-1, 0), 0.6, _BORDER),
         ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
         ("TOPPADDING", (0, 0), (-1, -1), 7),
@@ -244,7 +245,7 @@ def _build_metric_card(label: str, value: str, detail: str, width: float, accent
 def _build_info_panel(text: str, width: float, style: ParagraphStyle) -> Table:
     panel = Table([[Paragraph(text, style)]], colWidths=[width])
     panel.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), _BG_SURFACE),
+        ("BACKGROUND", (0, 0), (-1, -1), _BG_ALT),
         ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
         ("LINEBEFORE", (0, 0), (0, -1), 2, _ACCENT_CYAN),
         ("LEFTPADDING", (0, 0), (-1, -1), 12),
