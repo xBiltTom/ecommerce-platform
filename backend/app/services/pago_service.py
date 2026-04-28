@@ -78,6 +78,9 @@ class PagoService:
             customer_creation="always",
             submit_type="pay",
             billing_address_collection="auto",
+            branding_settings={
+                "display_name": self.business_name,
+            },
             custom_text={
                 "submit": {
                     "message": f"Estás en modo prueba. Este pago no será real. Puedes usar tarjetas de prueba de Stripe para completar la transacción en {self.business_name}.",
