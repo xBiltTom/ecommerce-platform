@@ -66,7 +66,9 @@ class PagoService:
 
         monto_total = self._to_stripe_amount(float(pedido.total))
         nombre_cliente = self._build_customer_name(pedido.usuario)
-        line_items = self._build_line_items(pedido, nombre_cliente, monto_total)
+        cupon = await self.cupon_repo.get_by_id(pedido.cupon_id) if pedido.cupon_id else None
+        nombre_cupon = cupon.codigo if cupon else None
+        line_items = self._build_line_items(pedido, nombre_cliente, monto_total, nombre_cupon)
         session = stripe.checkout.Session.create(
             mode="payment",
             success_url=success_url,
@@ -236,7 +238,7 @@ class PagoService:
         base = settings.BASE_URL.rstrip("/")
         return f"{base}{imagen_url}"
 
-    def _build_line_items(self, pedido, nombre_cliente: str | None, monto_total: int) -> list[dict]:
+    def _build_line_items(self, pedido, nombre_cliente: str | None, monto_total: int, nombre_cupon: str | None = None) -> list[dict]:
         items = list(pedido.items or [])
         if not items:
             return [
@@ -275,7 +277,7 @@ class PagoService:
 
             product_data = {
                 "name": item.nombre_producto,
-                "description": self._build_item_description(item, descuento_item),
+                "description": self._build_item_description(item),
             }
             imagen_url = self._get_product_image_url(item)
             if imagen_url:
@@ -302,6 +304,21 @@ class PagoService:
                             "description": f"Impuesto incluido para {self.business_name}.",
                         },
                         "unit_amount": self._to_stripe_amount(float(igv_total)),
+                    },
+                    "quantity": 1,
+                }
+            )
+
+        if descuento_total > Decimal("0.00") and nombre_cupon:
+            line_items.append(
+                {
+                    "price_data": {
+                        "currency": "pen",
+                        "product_data": {
+                            "name": f"Cupón {nombre_cupon}",
+                            "description": f"Descuento aplicado: S/ {descuento_total:.2f}",
+                        },
+                        "unit_amount": 0,
                     },
                     "quantity": 1,
                 }
@@ -341,11 +358,8 @@ class PagoService:
         partes.append("total final con descuentos aplicados")
         return " · ".join(partes) + "."
 
-    def _build_item_description(self, item, descuento_item: Decimal) -> str:
-        partes = [f"SKU: {item.sku_producto}"]
-        if descuento_item > Decimal("0.00"):
-            partes.append(f"descuento aplicado: S/ {descuento_item:.2f}")
-        return " · ".join(partes)
+    def _build_item_description(self, item) -> str:
+        return f"SKU: {item.sku_producto}"
 
     def _build_customer_name(self, usuario) -> str | None:
         if not usuario:

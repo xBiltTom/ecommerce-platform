@@ -275,7 +275,7 @@ interface AdminPedidoDetalleView extends AdminPedidoDetalle {
                   <span>{{ pedido.igv_total | currency:'PEN':'S/ ' }}</span>
                 </div>
                 <div *ngIf="pedido.descuento > 0" class="flex justify-between text-text-secondary">
-                  <span>Descuento:</span>
+                  <span>Descuento: </span>
                   <span>-{{ pedido.descuento | currency:'PEN':'S/ ' }}</span>
                 </div>
                 <div class="flex justify-between text-text-secondary">
