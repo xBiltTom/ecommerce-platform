@@ -2,7 +2,7 @@
 Rutas de pagos.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -17,6 +17,18 @@ from app.schemas.pago import (
 from app.services.pago_service import PagoService
 
 router = APIRouter(prefix="/pedidos", tags=["Pagos"])
+
+
+@router.post("/stripe/webhook")
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: str | None = Header(default=None, alias="stripe-signature"),
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await request.body()
+    service = PagoService(db)
+    event = service.construct_webhook_event(payload, stripe_signature)
+    return await service.process_webhook_event(event)
 
 
 @router.post("/{pedido_id}/stripe/checkout", response_model=StripeCheckoutResponse)

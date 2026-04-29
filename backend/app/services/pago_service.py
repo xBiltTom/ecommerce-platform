@@ -33,6 +33,24 @@ class PagoService:
     def business_name(self) -> str:
         return settings.STRIPE_BUSINESS_NAME.strip() or "Ecommerce Platform"
 
+    def construct_webhook_event(self, payload: bytes, stripe_signature: str | None):
+        if not settings.STRIPE_WEBHOOK_SECRET:
+            raise BadRequestException("Stripe webhook no está configurado en el backend")
+
+        if not stripe_signature:
+            raise BadRequestException("Falta la firma del webhook de Stripe")
+
+        try:
+            return stripe.Webhook.construct_event(
+                payload=payload,
+                sig_header=stripe_signature,
+                secret=settings.STRIPE_WEBHOOK_SECRET,
+            )
+        except ValueError as exc:
+            raise BadRequestException("Payload inválido recibido desde Stripe") from exc
+        except stripe.error.SignatureVerificationError as exc:
+            raise BadRequestException("La firma del webhook de Stripe no es válida") from exc
+
     async def create_checkout_session(
         self,
         pedido_id: str,
@@ -130,6 +148,20 @@ class PagoService:
             "pago_id": pago.id,
         }
 
+    async def process_webhook_event(self, event) -> dict:
+        event_type = self._stripe_value(event, "type")
+        event_object = self._stripe_value(self._stripe_value(event, "data", {}), "object", {})
+
+        if event_type in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+            await self._confirm_session_payment(event_object)
+        elif event_type == "checkout.session.expired":
+            await self._expire_session_payment(event_object)
+
+        return {
+            "received": True,
+            "type": event_type,
+        }
+
     async def confirm_payment(self, pedido_id: str, usuario_id: str, stripe_session_id: str) -> Pago:
         pedido = await self.pedido_repo.get_by_id_and_user(pedido_id, usuario_id)
         if not pedido:
@@ -147,54 +179,12 @@ class PagoService:
         if session.payment_status != "paid":
             raise BadRequestException("La sesión de Stripe aún no figura como pagada")
 
-        payment_intent_id = session.payment_intent if isinstance(session.payment_intent, str) else None
-        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id) if payment_intent_id else None
-        latest_charge = None
-        if payment_intent and getattr(payment_intent, "latest_charge", None):
-            latest_charge = stripe.Charge.retrieve(payment_intent.latest_charge)
-
-        detalle = {
-            "pasarela": f"{self.GATEWAY_NAME} Checkout · {self.business_name}",
-            "entorno": "sandbox",
-            "negocio": self.business_name,
-            "estado": "pagado",
-            "stripe_session_id": session.id,
-            "payment_intent_id": payment_intent_id,
-            "codigo_autorizacion": getattr(latest_charge, "id", None) or payment_intent_id,
-            "resumen": f"Pago de prueba confirmado correctamente en {self.business_name} mediante Stripe Checkout.",
-            "monto": round(float(pago.monto), 2),
-            "moneda": pago.moneda,
-            "ultimos4": self._extract_last4(latest_charge),
-            "payment_status": session.payment_status,
-        }
-
-        await self.pago_repo.update(
-            pago,
-            estado="pagado",
-            detalle_respuesta=json.dumps(detalle, ensure_ascii=False),
-            fecha_pago=datetime.now(timezone.utc),
+        return await self._mark_payment_as_paid(
+            pedido=pedido,
+            pago=pago,
+            session=session,
+            historial_actor_id=usuario_id,
         )
-
-        if pedido.estado != "pagado":
-            pedido.estado = "pagado"
-            await self.db.flush()
-            await self.pedido_repo.add_historial(
-                pedido_id=pedido.id,
-                estado_anterior="pendiente",
-                estado_nuevo="pagado",
-                comentario=f"Pago confirmado vía Stripe Checkout. Ref {stripe_session_id}",
-                creado_por=usuario_id,
-            )
-
-        # Marcar cupón como usado al completar el pago
-        if pedido.cupon_id:
-            cupon = await self.cupon_repo.get_by_id(pedido.cupon_id)
-            if cupon and not cupon.usado:
-                cupon.usado = True
-                cupon.fecha_uso = datetime.now(timezone.utc)
-                await self.db.flush()
-
-        return pago
 
     async def list_by_pedido(self, pedido_id: str):
         return await self.pago_repo.list_by_pedido(pedido_id)
@@ -368,6 +358,146 @@ class PagoService:
         apellido = (getattr(usuario, "apellido", "") or "").strip()
         full_name = f"{nombre} {apellido}".strip()
         return full_name or None
+
+    async def _confirm_session_payment(self, session) -> None:
+        session_id = self._stripe_value(session, "id")
+        payment_status = self._stripe_value(session, "payment_status")
+        pedido_id = self._extract_pedido_id_from_session(session)
+
+        if not session_id or not pedido_id or payment_status != "paid":
+            return
+
+        pedido = await self.pedido_repo.get_by_id(pedido_id)
+        if not pedido:
+            return
+
+        pagos = await self.pago_repo.list_by_pedido(pedido_id)
+        pago = next((item for item in pagos if item.referencia_externa == session_id), None)
+        if not pago:
+            amount_total = self._stripe_value(session, "amount_total") or 0
+            currency = (self._stripe_value(session, "currency") or "pen").upper()
+            pago = await self.pago_repo.create(
+                pedido_id=pedido.id,
+                metodo="tarjeta",
+                estado="pendiente",
+                monto=round(amount_total / 100, 2),
+                moneda=currency,
+                referencia_externa=session_id,
+                detalle_respuesta=json.dumps({
+                    "pasarela": f"{self.GATEWAY_NAME} Checkout · {self.business_name}",
+                    "entorno": "sandbox",
+                    "estado": "pendiente",
+                    "negocio": self.business_name,
+                    "stripe_session_id": session_id,
+                    "payment_status": payment_status,
+                    "resumen": f"Pago recuperado desde webhook de Stripe para {self.business_name}.",
+                }, ensure_ascii=False),
+            )
+
+        await self._mark_payment_as_paid(
+            pedido=pedido,
+            pago=pago,
+            session=session,
+            historial_actor_id=None,
+        )
+
+    async def _expire_session_payment(self, session) -> None:
+        session_id = self._stripe_value(session, "id")
+        pedido_id = self._extract_pedido_id_from_session(session)
+
+        if not session_id or not pedido_id:
+            return
+
+        pagos = await self.pago_repo.list_by_pedido(pedido_id)
+        pago = next((item for item in pagos if item.referencia_externa == session_id), None)
+        if not pago or pago.estado != "pendiente":
+            return
+
+        detalle = {
+            **self._parse_detail_payload(pago.detalle_respuesta),
+            "estado": "cancelado",
+            "stripe_session_id": session_id,
+            "resumen": f"La sesión de pago de Stripe expiró antes de completarse en {self.business_name}.",
+        }
+
+        await self.pago_repo.update(
+            pago,
+            estado="cancelado",
+            detalle_respuesta=json.dumps(detalle, ensure_ascii=False),
+        )
+
+    async def _mark_payment_as_paid(self, pedido, pago: Pago, session, historial_actor_id: str | None) -> Pago:
+        if pago.estado == "pagado":
+            return pago
+
+        payment_intent_id = self._extract_payment_intent_id(session)
+        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id) if payment_intent_id else None
+        latest_charge = None
+        if payment_intent and getattr(payment_intent, "latest_charge", None):
+            latest_charge = stripe.Charge.retrieve(payment_intent.latest_charge)
+
+        detalle = {
+            "pasarela": f"{self.GATEWAY_NAME} Checkout · {self.business_name}",
+            "entorno": "sandbox",
+            "negocio": self.business_name,
+            "estado": "pagado",
+            "stripe_session_id": self._stripe_value(session, "id"),
+            "payment_intent_id": payment_intent_id,
+            "codigo_autorizacion": getattr(latest_charge, "id", None) or payment_intent_id,
+            "resumen": f"Pago de prueba confirmado correctamente en {self.business_name} mediante Stripe Checkout.",
+            "monto": round(float(pago.monto), 2),
+            "moneda": pago.moneda,
+            "ultimos4": self._extract_last4(latest_charge),
+            "payment_status": self._stripe_value(session, "payment_status"),
+        }
+
+        await self.pago_repo.update(
+            pago,
+            estado="pagado",
+            detalle_respuesta=json.dumps(detalle, ensure_ascii=False),
+            fecha_pago=datetime.now(timezone.utc),
+        )
+
+        if pedido.estado != "pagado":
+            estado_anterior = pedido.estado
+            pedido.estado = "pagado"
+            await self.db.flush()
+            await self.pedido_repo.add_historial(
+                pedido_id=pedido.id,
+                estado_anterior=estado_anterior,
+                estado_nuevo="pagado",
+                comentario=f"Pago confirmado vía Stripe Checkout. Ref {self._stripe_value(session, 'id')}",
+                creado_por=historial_actor_id,
+            )
+
+        if pedido.cupon_id:
+            cupon = await self.cupon_repo.get_by_id(pedido.cupon_id)
+            if cupon and not cupon.usado:
+                cupon.usado = True
+                cupon.fecha_uso = datetime.now(timezone.utc)
+                await self.db.flush()
+
+        return pago
+
+    def _extract_payment_intent_id(self, session) -> str | None:
+        payment_intent = self._stripe_value(session, "payment_intent")
+        if isinstance(payment_intent, str):
+            return payment_intent
+        return self._stripe_value(payment_intent, "id")
+
+    def _extract_pedido_id_from_session(self, session) -> str | None:
+        client_reference_id = self._stripe_value(session, "client_reference_id")
+        if client_reference_id:
+            return client_reference_id
+        metadata = self._stripe_value(session, "metadata", {})
+        return self._stripe_value(metadata, "pedido_id")
+
+    def _stripe_value(self, payload, key: str, default=None):
+        if payload is None:
+            return default
+        if isinstance(payload, dict):
+            return payload.get(key, default)
+        return getattr(payload, key, default)
 
     def _extract_last4(self, charge) -> str | None:
         if not charge:
