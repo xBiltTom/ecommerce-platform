@@ -221,9 +221,9 @@ class PagoService:
         decimal_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return int(decimal_amount * 100)
 
-    def _to_stripe_amount_decimal(self, amount: Decimal) -> str:
-        decimal_amount = amount.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
-        return format(decimal_amount * 100, "f")
+    def _to_stripe_amount_from_decimal(self, amount: Decimal) -> int:
+        decimal_amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return int(decimal_amount * 100)
 
     def _get_product_image_url(self, item) -> str | None:
         producto = getattr(item, "producto", None)
@@ -273,7 +273,7 @@ class PagoService:
             igv_total += igv_item
 
             cantidad = max(int(item.cantidad), 1)
-            unit_amount_decimal = self._to_stripe_amount_decimal(base_imponible / Decimal(cantidad))
+            unit_amount = self._to_stripe_amount_from_decimal(base_imponible / Decimal(cantidad))
 
             product_data = {
                 "name": item.nombre_producto,
@@ -288,7 +288,7 @@ class PagoService:
                     "price_data": {
                         "currency": "pen",
                         "product_data": product_data,
-                        "unit_amount_decimal": unit_amount_decimal,
+                        "unit_amount": unit_amount,
                     },
                     "quantity": cantidad,
                 }
