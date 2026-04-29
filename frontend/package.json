@@ -2,6 +2,9 @@
   "name": "frontend",
   "version": "0.0.0",
   "scripts": {
+    "prepare:config": "node ./scripts/write-app-config.mjs",
+    "prestart": "npm run prepare:config",
+    "prebuild": "npm run prepare:config",
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",

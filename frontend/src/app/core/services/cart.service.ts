@@ -5,6 +5,7 @@ import { ProductData } from '../../shared/components/product-card/product-card.c
 import { ToastService } from './toast.service';
 import { AuthService } from './auth.service';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
+import { buildApiUrl, resolveApiAssetUrl } from '../config/api';
 
 export interface CartItem {
   cartItemId?: number;
@@ -42,7 +43,7 @@ export class CartService {
   private readonly http = inject(HttpClient);
 
   private readonly guestStorageKey = 'protech_cart_guest';
-  private readonly cartApiUrl = 'http://localhost:8000/api/v1/carrito';
+  private readonly cartApiUrl = buildApiUrl('/carrito');
   private readonly remoteSyncDelayMs = 1200;
   private readonly remoteSyncRetryDelayMs = 3000;
 
@@ -478,7 +479,7 @@ export class CartService {
         id: item.producto_id,
         nombre: item.producto_nombre || `Producto #${item.producto_id}`,
         precio: Number(item.precio_unitario),
-        imagen_url: item.producto_imagen ?? undefined,
+        imagen_url: resolveApiAssetUrl(item.producto_imagen) ?? undefined,
         stock_disponible:
           typeof item.producto_stock_disponible === 'number'
             ? item.producto_stock_disponible

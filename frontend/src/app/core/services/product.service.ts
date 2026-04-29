@@ -1,8 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
-import { Observable, of, catchError } from 'rxjs';
+import { Observable, of, catchError, map, throwError } from 'rxjs';
 import { ProductData } from '../../shared/components/product-card/product-card.component';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
+import { APP_CONFIG } from '../config/app-config';
+import { buildApiUrl, resolveApiAssetUrl } from '../config/api';
 
 export type ProductoOrden =
   | 'reciente'
@@ -71,7 +73,7 @@ export interface Marca {
 })
 export class ProductService {
   private http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8000/api/v1';
+  private readonly baseUrl = buildApiUrl();
 
   // Opcional: estado cacheado si se desea usar signals para categorias/marcas
   public categorias = signal<Categoria[]>([]);
@@ -96,7 +98,17 @@ export class ProductService {
     const context = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
     return this.http.get<PaginatedResponse<ProductData>>(`${this.baseUrl}/productos`, { params: httpParams, context }).pipe(
+      map((response) => ({
+        ...response,
+        items: response.items.map((item) => ({
+          ...item,
+          imagen_url: resolveApiAssetUrl(item.imagen_url) ?? item.imagen_url,
+        })),
+      })),
       catchError(error => {
+        if (APP_CONFIG.isProduction) {
+          return throwError(() => error);
+        }
         console.error('Error fetching products', error);
         // Fallback a datos mockeados si el backend no está corriendo, para no romper la UI en desarrollo
         return of({
@@ -120,7 +132,12 @@ export class ProductService {
       `${this.baseUrl}/categorias`,
       { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
     ).pipe(
-      catchError(() => of({ items: [{id: 1, nombre: 'Audio', slug: 'audio'}, {id: 2, nombre: 'Wearables', slug: 'wearables'}], total: 2, page: 1, page_size: 10, total_pages: 1 }))
+      catchError((error) => {
+        if (APP_CONFIG.isProduction) {
+          return throwError(() => error);
+        }
+        return of({ items: [{id: 1, nombre: 'Audio', slug: 'audio'}, {id: 2, nombre: 'Wearables', slug: 'wearables'}], total: 2, page: 1, page_size: 10, total_pages: 1 });
+      })
     );
   }
 
@@ -128,6 +145,11 @@ export class ProductService {
     return this.http.get<ProductoDetallePublico>(
       `${this.baseUrl}/productos/${slug}`,
       { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
+    ).pipe(
+      map((product) => ({
+        ...product,
+        imagen_url: resolveApiAssetUrl(product.imagen_url) ?? product.imagen_url,
+      }))
     );
   }
 
@@ -136,7 +158,12 @@ export class ProductService {
       `${this.baseUrl}/marcas`,
       { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }
     ).pipe(
-      catchError(() => of({ items: [{id: 1, nombre: 'Sony', slug: 'sony'}, {id: 2, nombre: 'Apple', slug: 'apple'}], total: 2, page: 1, page_size: 10, total_pages: 1 }))
+      catchError((error) => {
+        if (APP_CONFIG.isProduction) {
+          return throwError(() => error);
+        }
+        return of({ items: [{id: 1, nombre: 'Sony', slug: 'sony'}, {id: 2, nombre: 'Apple', slug: 'apple'}], total: 2, page: 1, page_size: 10, total_pages: 1 });
+      })
     );
   }
 }

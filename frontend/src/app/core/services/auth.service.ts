@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Observable, tap, catchError, throwError, finalize } from 'rxjs';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
 import { ToastService } from './toast.service';
+import { buildApiUrl } from '../config/api';
 
 export interface Usuario {
   id: string;
@@ -29,7 +30,7 @@ export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
   private toast = inject(ToastService);
-  private readonly API_URL = 'http://localhost:8000/api/v1/auth';
+  private readonly API_URL = buildApiUrl('/auth');
 
   // State using Signals
   private currentUserSignal = signal<Usuario | null>(null);

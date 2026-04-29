@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
+import { buildApiUrl, resolveApiAssetUrl } from '../config/api';
 
 export interface PaginatedResponse<T> {
   items: T[];
@@ -231,11 +232,18 @@ export interface ProductoUpdatePayload {
 })
 export class AdminService {
   private http = inject(HttpClient);
-  private readonly BASE_URL = 'http://localhost:8000/api/v1';
+  private readonly BASE_URL = buildApiUrl();
   private readonly ADMIN_URL = `${this.BASE_URL}/admin`;
   private readonly PRODUCTOS_URL = `${this.BASE_URL}/productos`;
   private readonly CATEGORIAS_URL = `${this.BASE_URL}/categorias`;
   private readonly MARCAS_URL = `${this.BASE_URL}/marcas`;
+
+  private withResolvedImage<T extends { imagen_url?: string | null }>(item: T): T {
+    return {
+      ...item,
+      imagen_url: resolveApiAssetUrl(item.imagen_url) ?? item.imagen_url,
+    };
+  }
 
   private toParams(
     params: Record<string, string | number | boolean | null | undefined>
@@ -344,19 +352,30 @@ export class AdminService {
       activo: params.activo,
     });
 
-    return this.http.get<PaginatedResponse<AdminProductoList>>(this.PRODUCTOS_URL, { params: query });
+    return this.http.get<PaginatedResponse<AdminProductoList>>(this.PRODUCTOS_URL, { params: query }).pipe(
+      map((response) => ({
+        ...response,
+        items: response.items.map((item) => this.withResolvedImage(item)),
+      }))
+    );
   }
 
   getProductoDetalle(slug: string): Observable<AdminProductoDetail> {
-    return this.http.get<AdminProductoDetail>(`${this.PRODUCTOS_URL}/${slug}`);
+    return this.http.get<AdminProductoDetail>(`${this.PRODUCTOS_URL}/${slug}`).pipe(
+      map((product) => this.withResolvedImage(product))
+    );
   }
 
   createProducto(payload: ProductoCreatePayload): Observable<AdminProductoDetail> {
-    return this.http.post<AdminProductoDetail>(this.PRODUCTOS_URL, payload);
+    return this.http.post<AdminProductoDetail>(this.PRODUCTOS_URL, payload).pipe(
+      map((product) => this.withResolvedImage(product))
+    );
   }
 
   updateProducto(productoId: number, payload: ProductoUpdatePayload): Observable<AdminProductoDetail> {
-    return this.http.put<AdminProductoDetail>(`${this.PRODUCTOS_URL}/${productoId}`, payload);
+    return this.http.put<AdminProductoDetail>(`${this.PRODUCTOS_URL}/${productoId}`, payload).pipe(
+      map((product) => this.withResolvedImage(product))
+    );
   }
 
   deleteProducto(productoId: number): Observable<{ message: string }> {

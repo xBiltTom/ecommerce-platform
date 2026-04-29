@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { SKIP_ERROR_TOAST } from '../interceptors/http-context-tokens';
+import { buildApiUrl } from '../config/api';
 
 export type EstadoPedido =
   | 'pendiente'
@@ -106,7 +107,7 @@ export interface PedidoDetalle {
 })
 export class CheckoutService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8000/api/v1';
+  private readonly API_URL = buildApiUrl();
 
   private toParams(params: Record<string, string | number | boolean | null | undefined>): HttpParams {
     let httpParams = new HttpParams();
