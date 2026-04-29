@@ -231,7 +231,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
 
     if (stripeStatus === 'cancel') {
-      this.errorMessage.set('El pago en Stripe fue cancelado. Puedes intentarlo nuevamente.');
+      const mensaje = 'El pago en Stripe fue cancelado o rechazado. Puedes intentarlo nuevamente.';
+      this.errorMessage.set(mensaje);
+      this.paymentStage.set('error');
+      this.toast.error(mensaje, 'Pago no completado');
     }
 
     if (this.cartService.items().length === 0) {
@@ -308,7 +311,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     } catch {
       this.loading.set(false);
       this.paymentStage.set('error');
-      this.errorMessage.set('No se pudo sincronizar el carrito. Intenta nuevamente en unos segundos.');
+      const mensaje = 'No se pudo sincronizar el carrito. Intenta nuevamente en unos segundos.';
+      this.errorMessage.set(mensaje);
+      this.toast.error(mensaje, 'Pago rechazado');
       return;
     }
 
@@ -334,7 +339,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
             this.clearPaymentTimers();
             this.paymentStage.set('error');
             this.loading.set(false);
-            this.errorMessage.set(err?.error?.detail || 'No se pudo iniciar Stripe Checkout.');
+            const mensaje = err?.error?.detail || 'No se pudo iniciar Stripe Checkout.';
+            this.errorMessage.set(mensaje);
+            this.toast.error(mensaje, 'Pago rechazado');
           }
         });
       },
@@ -342,7 +349,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         this.clearPaymentTimers();
         this.paymentStage.set('error');
         this.loading.set(false);
-        this.errorMessage.set(err?.error?.detail || 'No se pudo crear el pedido. Intenta de nuevo.');
+        const mensaje = err?.error?.detail || 'No se pudo crear el pedido. Intenta de nuevo.';
+        this.errorMessage.set(mensaje);
+        this.toast.error(mensaje, 'Pago rechazado');
       }
     });
   }
@@ -431,14 +440,18 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           error: (err: any) => {
             this.paymentStage.set('error');
             this.loading.set(false);
-            this.errorMessage.set(err?.error?.detail || 'El pago se confirmó, pero no se pudo cargar el pedido.');
+            const mensaje = err?.error?.detail || 'El pago se confirmó, pero no se pudo cargar el pedido.';
+            this.errorMessage.set(mensaje);
+            this.toast.warning(mensaje, 'Pedido pendiente');
           }
         });
       },
       error: (err: any) => {
         this.paymentStage.set('error');
         this.loading.set(false);
-        this.errorMessage.set(err?.error?.detail || 'No se pudo confirmar el pago con Stripe.');
+        const mensaje = err?.error?.detail || 'No se pudo confirmar el pago con Stripe.';
+        this.errorMessage.set(mensaje);
+        this.toast.error(mensaje, 'Pago rechazado');
       }
     });
   }
