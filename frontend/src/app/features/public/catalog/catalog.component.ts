@@ -7,6 +7,7 @@ import { LucideAngularModule, SlidersHorizontal, ChevronDown, Search, X, Check, 
 import { ProductCardComponent, ProductData } from '../../../shared/components/product-card/product-card.component';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { ProductService, Categoria, GetProductosParams, Marca, ProductoOrden } from '../../../core/services/product.service';
+import { SeoService } from '../../../core/services/seo.service';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
@@ -295,6 +296,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private productService = inject(ProductService);
+  private readonly seoService = inject(SeoService);
   private cartService = inject(CartService);
   private toast = inject(ToastService);
   private destroy$ = new Subject<void>();
@@ -352,6 +354,13 @@ export class CatalogComponent implements OnInit, OnDestroy {
       this.searchInput.set(parsedFilters.buscar);
       this.priceMinInput.set(parsedFilters.precioMin);
       this.priceMaxInput.set(parsedFilters.precioMax);
+
+      this.seoService.setCatalogSeo({
+        search: parsedFilters.buscar,
+        onSale: parsedFilters.enOferta === true,
+        priceMin: parsedFilters.precioMin,
+        priceMax: parsedFilters.precioMax,
+      });
 
       this.fetchProducts(parsedFilters);
     });
@@ -505,6 +514,17 @@ export class CatalogComponent implements OnInit, OnDestroy {
         if (requestId !== this.latestRequestId) {
           return;
         }
+
+        const selectedCategory = this.categorias().find((item) => item.id === filters.categoriaId)?.nombre;
+        const selectedBrand = this.marcas().find((item) => item.id === filters.marcaId)?.nombre;
+        this.seoService.setCatalogSeo({
+          search: filters.buscar,
+          category: selectedCategory,
+          brand: selectedBrand,
+          onSale: filters.enOferta === true,
+          priceMin: filters.precioMin,
+          priceMax: filters.precioMax,
+        });
 
         if (res.total_pages > 0 && filters.page > res.total_pages) {
           this.navigateWithFilters({ ...filters, page: res.total_pages }, true);

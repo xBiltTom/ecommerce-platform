@@ -6,6 +6,7 @@ import { LucideAngularModule, ArrowLeft, Truck, ShieldCheck, ChevronRight, Plus,
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { BadgeComponent } from '../../../shared/components/badge/badge.component';
 import { ProductService, ProductoDetallePublico } from '../../../core/services/product.service';
+import { SeoService } from '../../../core/services/seo.service';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 
@@ -188,6 +189,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   private productService = inject(ProductService);
   private cartService = inject(CartService);
   private toast = inject(ToastService);
+  private seoService = inject(SeoService);
   private destroy$ = new Subject<void>();
 
   loading = signal<boolean>(true);
@@ -226,11 +228,13 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     this.productService.getProductoBySlug(slug).subscribe({
       next: (data) => {
         this.product.set(data);
+        this.seoService.setProductSeo(data);
         this.loading.set(false);
       },
       error: (err) => {
         const msg = err?.error?.detail || 'No se pudo cargar el producto. Intenta de nuevo.';
         this.error.set(msg);
+        this.seoService.setNoIndex('Producto no encontrado', msg);
         this.loading.set(false);
       }
     });

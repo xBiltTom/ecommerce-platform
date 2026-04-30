@@ -23,7 +23,7 @@ import { LucideAngularModule, ArrowLeft } from 'lucide-angular';
           <div class="w-10 h-10 rounded-sm bg-accent-primary flex items-center justify-center mr-3 shadow-[0_0_20px_rgba(223,227,29,0.4)]">
             <span class="text-text-inverse font-bold font-sans tracking-tighter text-xl">PR</span>
           </div>
-          <span class="text-2xl font-bold tracking-tight">Protech</span>
+          <span class="text-2xl font-bold tracking-tight">ProTech</span>
         </div>
 
         <div class="relative z-10 max-w-md">
@@ -36,7 +36,7 @@ import { LucideAngularModule, ArrowLeft } from 'lucide-angular';
         </div>
 
         <div class="relative z-10">
-          <p class="text-sm text-text-secondary">&copy; 2026 Protech Inc. Todos los derechos reservados.</p>
+          <p class="text-sm text-text-secondary">&copy; 2026 ProTech Inc. Todos los derechos reservados.</p>
         </div>
       </div>
 

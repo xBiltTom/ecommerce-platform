@@ -131,7 +131,7 @@ export class RegisterComponent {
             this.authService.fetchCurrentUser(true).subscribe({
               next: () => {
                 this.router.navigate(['/']);
-                this.toast.success('Tu cuenta ha sido creada exitosamente.', '¡Bienvenido a Protech!');
+                this.toast.success('Tu cuenta ha sido creada exitosamente.', '¡Bienvenido a ProTech!');
               },
               error: () => this.router.navigate(['/auth/login'])
             });

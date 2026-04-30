@@ -15,7 +15,7 @@ import { FormsModule } from '@angular/forms';
     <div class="min-h-screen p-8 max-w-7xl mx-auto space-y-16">
       
       <header class="border-b border-border-subtle pb-8">
-        <h1 class="text-4xl font-bold text-text-primary">Protech Design System</h1>
+        <h1 class="text-4xl font-bold text-text-primary">ProTech Design System</h1>
         <p class="text-text-secondary mt-2">UI Components Sandbox</p>
       </header>
 

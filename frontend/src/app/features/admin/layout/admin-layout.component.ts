@@ -46,7 +46,7 @@ import {
             <div class="w-8 h-8 rounded-sm bg-accent-primary flex items-center justify-center mr-3 shadow-[0_0_15px_rgba(223,227,29,0.3)] group-hover:shadow-[0_0_25px_rgba(223,227,29,0.5)] transition-shadow">
               <span class="text-text-inverse font-bold tracking-tighter text-sm">PR</span>
             </div>
-            <span class="text-xl font-bold tracking-tight text-text-primary">Protech <span class="text-accent-primary text-sm font-normal ml-1">Admin</span></span>
+            <span class="text-xl font-bold tracking-tight text-text-primary">ProTech <span class="text-accent-primary text-sm font-normal ml-1">Admin</span></span>
           </div>
           <!-- Close button mobile -->
           <button 
@@ -133,7 +133,7 @@ import {
             <div class="w-6 h-6 rounded-sm bg-accent-primary flex items-center justify-center mr-2 shadow-[0_0_10px_rgba(223,227,29,0.3)]">
               <span class="text-text-inverse font-bold text-xs">PR</span>
             </div>
-            <span class="text-lg font-bold text-text-primary tracking-tight">Protech</span>
+            <span class="text-lg font-bold text-text-primary tracking-tight">ProTech</span>
           </div>
         </header>
 

@@ -26,7 +26,7 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
             <div class="w-8 h-8 rounded-sm bg-accent-primary flex items-center justify-center mr-3">
               <span class="text-text-inverse font-bold font-sans tracking-tighter">PR</span>
             </div>
-            <span class="text-xl font-bold tracking-tight">Protech</span>
+            <span class="text-xl font-bold tracking-tight">ProTech</span>
           </div>
 
           <!-- Navigation Links (Desktop) -->
@@ -273,7 +273,7 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
                 <div class="w-6 h-6 rounded-sm bg-accent-primary flex items-center justify-center mr-2">
                   <span class="text-text-inverse font-bold text-xs tracking-tighter">PR</span>
                 </div>
-                <span class="text-lg font-bold">Protech</span>
+                <span class="text-lg font-bold">ProTech</span>
               </div>
               <p class="text-text-secondary text-sm leading-relaxed">
                 Equipamiento premium para el profesional moderno. Elegancia, rendimiento y calidad inigualable en cada dispositivo.
@@ -311,7 +311,7 @@ import { Categoria, Marca, ProductService } from '../../../core/services/product
           </div>
 
           <div class="border-t border-border-subtle pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-text-secondary">
-            <p>&copy; 2026 Protech Inc. Todos los derechos reservados.</p>
+            <p>&copy; 2026 ProTech Inc. Todos los derechos reservados.</p>
             <div class="flex space-x-4 mt-4 md:mt-0">
               <a href="#" class="hover:text-text-primary">Política de Privacidad</a>
               <a href="#" class="hover:text-text-primary">Términos de Servicio</a>
